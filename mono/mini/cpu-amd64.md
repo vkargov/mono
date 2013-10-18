@@ -493,7 +493,7 @@ amd64_or_membase_reg: src1:b src2:i len:13
 amd64_xor_membase_reg: src1:b src2:i len:13
 amd64_mul_membase_reg: src1:b src2:i len:15
 
-float_conv_to_r4: dest:f src1:f
+float_conv_to_r4: dest:f src1:f len:4
 
 vcall2: len:64 clob:c
 vcall2_reg: src1:i len:64 clob:c
