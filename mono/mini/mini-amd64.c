@@ -1521,8 +1521,8 @@ mono_arch_get_global_fp_regs (MonoCompile *cfg)
 	GList *regs = NULL;
 	int i;
 
-	/* All XMM registers */
-	for (i = 0; i < 16; ++i)
+	/* All XMM registers except XMM15, which is used by some opcodes */
+	for (i = 0; i < 15; ++i)
 		regs = g_list_prepend (regs, GINT_TO_POINTER (i));
 
 	return regs;
