@@ -5012,7 +5012,9 @@ mini_method_compile (MonoMethod *method, guint32 opts, MonoDomain *domain, gbool
 		cfg->globalra = TRUE;
 	*/
 
-	//cfg->globalra = TRUE;
+#ifdef MONO_ARCH_ENABLE_GLOBAL_RA
+	cfg->globalra = (cfg->opt & MONO_OPT_GLOBALRA) != 0;
+#endif
 
 	//if (!strcmp (cfg->method->klass->name, "Tests") && !cfg->method->wrapper_type)
 	//	cfg->globalra = TRUE;
