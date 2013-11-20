@@ -796,6 +796,11 @@ update_liveness (MonoCompile *cfg, MonoRegallocContext *ctx, MonoInst *ins, int 
 				ctx->varinfo [ins->sreg1].preferred_reg = ctx->varinfo [ins->dreg].preferred_reg;
 			}
 		}
+
+		/*
+		if (ins->dreg <= MONO_MAX_IREGS)
+			mono_linterval_add_range (ctx->cfg, get_var_interval (cfg, ctx, ins->dreg), inst_num + INS_POS_DEF, inst_num + INS_POS_DEF);
+		*/
 	}
 
 	/* SREG1 */
@@ -806,6 +811,11 @@ update_liveness (MonoCompile *cfg, MonoRegallocContext *ctx, MonoInst *ins, int 
 			last_use [sreg] = inst_num + INS_POS_USE;
 		}
 		ctx->varinfo [sreg].use_pos = g_slist_prepend_mempool (ctx->cfg->mempool, ctx->varinfo [sreg].use_pos, GINT_TO_POINTER (inst_num));
+
+		/*
+		if (ins->sreg1 <= MONO_MAX_IREGS)
+			mono_linterval_add_range (ctx->cfg, get_var_interval (cfg, ctx, ins->sreg1), inst_num + INS_POS_DEF, inst_num + INS_POS_DEF);
+		*/
 	}
 
 	/* SREG2 */
@@ -816,6 +826,12 @@ update_liveness (MonoCompile *cfg, MonoRegallocContext *ctx, MonoInst *ins, int 
 			last_use [sreg] = inst_num + INS_POS_USE;
 		}
 		ctx->varinfo [sreg].use_pos = g_slist_prepend_mempool (ctx->cfg->mempool, ctx->varinfo [sreg].use_pos, GINT_TO_POINTER (inst_num));
+
+		/*
+		if (ins->sreg2 <= MONO_MAX_IREGS)
+			mono_linterval_add_range (ctx->cfg, get_var_interval (cfg, ctx, ins->sreg2), inst_num + INS_POS_DEF, inst_num + INS_POS_DEF);
+		*/
+	}
 
 	/* SREG3 */
 	sreg = ins->sreg3;
