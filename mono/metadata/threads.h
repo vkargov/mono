@@ -14,6 +14,7 @@
 #include <mono/utils/mono-publib.h>
 #include <mono/metadata/object.h>
 #include <mono/metadata/appdomain.h>
+#include <glib.h>
 
 MONO_BEGIN_DECLS
 

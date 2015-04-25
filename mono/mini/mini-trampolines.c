@@ -398,6 +398,8 @@ common_call_trampoline (mgreg_t *regs, guint8 *code, MonoMethod *m, guint8* tram
 	gpointer *orig_vtable_slot, *vtable_slot_to_patch = NULL;
 	MonoJitInfo *ji = NULL;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+
 	virtual = (gpointer)vtable_slot > (gpointer)vt;
 
 	orig_vtable_slot = vtable_slot;
@@ -454,6 +456,7 @@ common_call_trampoline (mgreg_t *regs, guint8 *code, MonoMethod *m, guint8* tram
 				if (mono_domain_owns_vtable_slot (mono_domain_get (), vtable_slot))
 					*vtable_slot = addr;
 
+				thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 				return mono_create_ftnptr (mono_domain_get (), addr);
 			}
 
@@ -610,6 +613,7 @@ common_call_trampoline (mgreg_t *regs, guint8 *code, MonoMethod *m, guint8* tram
 													vt, vtable_slot,
 													target, addr);
 
+		thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 		return addr;
 	}
 
@@ -638,6 +642,7 @@ common_call_trampoline (mgreg_t *regs, guint8 *code, MonoMethod *m, guint8* tram
 			mono_domain_unlock (domain);
 		}
 
+		thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 		return addr;
 	}
 
@@ -694,6 +699,7 @@ common_call_trampoline (mgreg_t *regs, guint8 *code, MonoMethod *m, guint8* tram
 		}
 	}
 
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	return addr;
 }
 
@@ -705,9 +711,12 @@ common_call_trampoline (mgreg_t *regs, guint8 *code, MonoMethod *m, guint8* tram
 gpointer
 mono_magic_trampoline (mgreg_t *regs, guint8 *code, gpointer arg, guint8* tramp)
 {
+	gpointer val;
+	
 	trampoline_calls ++;
 
-	return common_call_trampoline (regs, code, arg, tramp, NULL, NULL, FALSE);
+	val = common_call_trampoline (regs, code, arg, tramp, NULL, NULL, FALSE);
+	return val;
 }
 
 /**
@@ -724,6 +733,9 @@ mono_vcall_trampoline (mgreg_t *regs, guint8 *code, int slot, guint8 *tramp)
 	MonoMethod *m;
 	gboolean need_rgctx_tramp = FALSE;
 	gpointer addr;
+	gpointer val;
+
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 
 	trampoline_calls ++;
 
@@ -753,7 +765,11 @@ mono_vcall_trampoline (mgreg_t *regs, guint8 *code, int slot, guint8 *tramp)
 			if (mono_domain_owns_vtable_slot (mono_domain_get (), vtable_slot))
 				*vtable_slot = addr;
 
-			return mono_create_ftnptr (mono_domain_get (), addr);
+			
+			val = mono_create_ftnptr (mono_domain_get (), addr);
+			/* jit_tls->state = STATE_EXEC; */
+			thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+			return val;
 		}
 
 		/*
@@ -780,7 +796,9 @@ mono_vcall_trampoline (mgreg_t *regs, guint8 *code, int slot, guint8 *tramp)
 		need_rgctx_tramp = FALSE;
 	}
 
-	return common_call_trampoline (regs, code, m, tramp, vt, vtable_slot, need_rgctx_tramp);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	val = common_call_trampoline (regs, code, m, tramp, vt, vtable_slot, need_rgctx_tramp);
+	return val;
 }
 
 #ifndef DISABLE_REMOTING
@@ -838,18 +856,22 @@ mono_aot_trampoline (mgreg_t *regs, guint8 *code, guint8 *token_info,
 	guint8 *plt_entry;
 
 	trampoline_calls ++;
-
+	
 	image = *(gpointer*)(gpointer)token_info;
 	token_info += sizeof (gpointer);
 	token = *(guint32*)(gpointer)token_info;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 	addr = mono_aot_get_method_from_token (mono_domain_get (), image, token);
 	if (!addr) {
+		gpointer p;
 		method = mono_get_method (image, token, NULL);
 		g_assert (method);
 
 		/* Use the generic code */
-		return mono_magic_trampoline (regs, code, method, tramp);
+		thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+		p = mono_magic_trampoline (regs, code, method, tramp);
+		return p;
 	}
 
 	addr = mono_create_ftnptr (mono_domain_get (), addr);
@@ -860,6 +882,7 @@ mono_aot_trampoline (mgreg_t *regs, guint8 *code, guint8 *token_info,
 
 	mono_aot_patch_plt_entry (code, plt_entry, NULL, regs, addr);
 
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	return addr;
 }
 
@@ -900,6 +923,8 @@ mono_class_init_trampoline (mgreg_t *regs, guint8 *code, MonoVTable *vtable, gui
 {
 	guint8 *plt_entry = mono_aot_get_plt_entry (code);
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+	
 	trampoline_calls ++;
 
 	mono_runtime_class_init (vtable);
@@ -910,6 +935,8 @@ mono_class_init_trampoline (mgreg_t *regs, guint8 *code, MonoVTable *vtable, gui
 		else
 			mono_arch_nullify_class_init_trampoline (code, regs);
 	}
+
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 }
 
 /**
@@ -923,7 +950,9 @@ mono_generic_class_init_trampoline (mgreg_t *regs, guint8 *code, MonoVTable *vta
 {
 	trampoline_calls ++;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 	mono_runtime_class_init (vtable);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 }
 
 static gpointer
@@ -937,7 +966,9 @@ mono_rgctx_lazy_fetch_trampoline (mgreg_t *regs, guint8 *code, gpointer data, gu
 	gpointer arg = (gpointer)(gssize)r [MONO_ARCH_VTABLE_REG];
 	guint32 index = MONO_RGCTX_SLOT_INDEX (slot);
 	gboolean mrgctx = MONO_RGCTX_SLOT_IS_MRGCTX (slot);
+	gpointer res;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 	trampoline_calls ++;
 
 	if (!inited) {
@@ -948,9 +979,12 @@ mono_rgctx_lazy_fetch_trampoline (mgreg_t *regs, guint8 *code, gpointer data, gu
 	num_lookups++;
 
 	if (mrgctx)
-		return mono_method_fill_runtime_generic_context (arg, code, index);
+		res = mono_method_fill_runtime_generic_context (arg, code, index);
 	else
-		return mono_class_fill_runtime_generic_context (arg, code, index);
+		res = mono_class_fill_runtime_generic_context (arg, code, index);
+
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	return res;
 #else
 	g_assert_not_reached ();
 #endif
@@ -1039,6 +1073,9 @@ mono_delegate_trampoline (mgreg_t *regs, guint8 *code, gpointer *arg, guint8* tr
 	gboolean is_remote = FALSE;
 
 	trampoline_calls ++;
+
+	g_assert (thread_get_perf_state() == STATE_EXEC);
+	thread_change_perf_state (STATE_RUNTIME);
 
 	/* Obtain the delegate object according to the calling convention */
 	delegate = mono_arch_get_this_arg_from_call (regs, code);
@@ -1176,6 +1213,9 @@ mono_delegate_trampoline (mgreg_t *regs, guint8 *code, gpointer *arg, guint8* tr
 		tramp_info->invoke_impl = delegate->invoke_impl;
 	}
 
+	g_assert (thread_get_perf_state() == STATE_RUNTIME);
+	thread_change_perf_state (STATE_EXEC);
+	
 	return code;
 }
 

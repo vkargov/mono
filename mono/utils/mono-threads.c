@@ -18,6 +18,7 @@
 #include <mono/utils/mono-memory-model.h>
 #include <mono/utils/mono-mmap.h>
 #include <mono/utils/atomic.h>
+#include <mono/utils/mono-time.h>
 
 #include <errno.h>
 
@@ -57,6 +58,49 @@ static gboolean mono_threads_inited = FALSE;
 
 static void mono_threads_unregister_current_thread (MonoThreadInfo *info);
 
+static MonoNativeTlsKey thread_perf_counter_key;
+guint64 perf_counters[STATE_NUM];
+
+MonoThreadPerfCounter *thread_get_perf_counter (void)
+{
+	return mono_native_tls_get_value (thread_perf_counter_key);
+}
+
+void thread_change_perf_state (int state)
+{
+	MonoThreadPerfCounter *pc = thread_get_perf_counter();
+	guint64 time = mono_thread_cpu_time();
+	/* printf("%p state %d -> state %d\n", pc, pc->state, state); */
+	perf_counters[pc->state] += time - pc->slice_start_time;
+	pc->slice_start_time = time;
+	pc->state = state;
+}
+
+void thread_change_perf_state_check (int old_state, int new_state)
+{
+	g_assert (thread_get_perf_state() & old_state);
+	thread_change_perf_state (new_state);
+}
+
+PerfState thread_get_perf_state (void)
+{
+	return thread_get_perf_counter()->state;
+}
+
+static void thread_init_perf_state (void)
+{
+	MonoThreadPerfCounter *pc = g_malloc0(sizeof(MonoThreadPerfCounter));
+	mono_native_tls_set_value (thread_perf_counter_key, pc);
+	pc->slice_start_time = mono_thread_cpu_time();
+	pc->state = STATE_RUNTIME;
+}
+
+static void thread_free_perf_state (void)
+{
+	int s;
+	g_free(thread_get_perf_counter());
+	mono_native_tls_free (thread_perf_counter_key);
+}
 
 static inline void
 mono_hazard_pointer_clear_all (MonoThreadHazardPointers *hp, int retain)
@@ -151,6 +195,7 @@ register_thread (MonoThreadInfo *info, gpointer baseptr)
 
 	/*set TLS early so SMR works */
 	mono_native_tls_set_value (thread_info_key, info);
+	thread_init_perf_state();
 
 	THREADS_DEBUG ("registering info %p tid %p small id %x\n", info, mono_thread_info_get_tid (info), info->small_id);
 
@@ -402,6 +447,8 @@ mono_threads_init (MonoThreadInfoCallbacks *callbacks, size_t info_size)
 #endif
 	g_assert (res);
 
+	mono_native_tls_alloc (&thread_perf_counter_key, NULL);
+
 #ifndef HAVE_KW_THREAD
 	res = mono_native_tls_alloc (&small_id_key, NULL);
 #endif
@@ -420,6 +467,8 @@ mono_threads_init (MonoThreadInfoCallbacks *callbacks, size_t info_size)
 	mono_threads_inited = TRUE;
 
 	g_assert (sizeof (MonoNativeThreadId) <= sizeof (uintptr_t));
+
+	thread_init_perf_state();
 }
 
 void

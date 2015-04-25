@@ -64,6 +64,7 @@
 #include <mono/utils/dtrace.h>
 #include <mono/utils/mono-signal-handler.h>
 #include <mono/utils/mono-threads.h>
+#include <mono/utils/mono-time.h>
 
 #include "mini.h"
 #include "seq-points.h"
@@ -2747,11 +2748,13 @@ mono_set_lmf (MonoLMF *lmf)
 	(*mono_get_lmf_addr ()) = lmf;
 }
 
-MonoJitTlsData*
-mono_get_jit_tls (void)
-{
-	return mono_native_tls_get_value (mono_jit_tls_id);
-}
+/* 
+ * MonoJitTlsData*
+ * mono_get_jit_tls (void)
+ * {
+ * 	return mono_native_tls_get_value (mono_jit_tls_id);
+ * }
+ */
 
 static void
 mono_set_jit_tls (MonoJitTlsData *jit_tls)
@@ -2890,6 +2893,12 @@ setup_jit_tls_data (gpointer stack_start, gpointer abort_func)
 
 	mono_setup_altstack (jit_tls);
 
+	/* 
+         * jit_tls->compile_time = jit_tls->exec_time = 0;
+	 * jit_tls->slice_start_time = mono_100ns_ticks ();
+	 * jit_tls->state = STATE_RUNTIME;
+         */
+	
 	return jit_tls;
 }
 
@@ -5785,6 +5794,7 @@ mono_jit_compile_method_inner (MonoMethod *method, MonoDomain *target_domain, in
 	guint32 prof_options;
 	GTimer *jit_timer;
 	MonoMethod *prof_method, *shared;
+	PerfState old_state = thread_get_perf_state();
 
 #ifdef MONO_USE_AOT_COMPILER
 	if (opt & MONO_OPT_AOT) {
@@ -5917,7 +5927,16 @@ mono_jit_compile_method_inner (MonoMethod *method, MonoDomain *target_domain, in
 
 	jit_timer = g_timer_new ();
 
+
+	old_state = thread_get_perf_state();
+	g_assert (old_state == STATE_RUNTIME || old_state == STATE_COMPILE);
+	thread_change_perf_state (STATE_COMPILE);
+	
 	cfg = mini_method_compile (method, opt, target_domain, JIT_FLAG_RUN_CCTORS, 0);
+
+	g_assert (thread_get_perf_state() == STATE_COMPILE);
+	thread_change_perf_state (old_state);
+	
 	prof_method = cfg->method;
 
 	g_timer_stop (jit_timer);
@@ -6415,6 +6434,8 @@ mono_jit_runtime_invoke (MonoMethod *method, void *obj, void **params, MonoObjec
 	MonoDomain *domain = mono_domain_get ();
 	MonoJitDomainInfo *domain_info;
 	RuntimeInvokeInfo *info, *info2;
+	int old_state;
+	MonoObject *res;
 	
 	if (obj == NULL && !(method->flags & METHOD_ATTRIBUTE_STATIC) && !method->string_ctor && (method->wrapper_type == 0)) {
 		g_warning ("Ignoring invocation of an instance method on a NULL instance.\n");
@@ -6470,8 +6491,8 @@ mono_jit_runtime_invoke (MonoMethod *method, void *obj, void **params, MonoObjec
 
 		if (callee) {
 			MonoException *jit_ex = NULL;
-
 			info->compiled_method = mono_jit_compile_method_with_opt (callee, mono_get_optimizations_for_method (callee, default_opt), &jit_ex);
+
 			if (!info->compiled_method) {
 				g_free (info);
 				g_assert (jit_ex);
@@ -6635,7 +6656,20 @@ mono_jit_runtime_invoke (MonoMethod *method, void *obj, void **params, MonoObjec
 	}
 #endif
 
-	return runtime_invoke (obj, params, exc, info->compiled_method);
+	/* 
+         * jit_tls->compile_time += mono_100ns_ticks () - jit_tls->slice_start_time;
+	 * jit_tls->slice_start_time = mono_100ns_ticks ();
+         */
+	old_state = thread_get_perf_state();
+	g_assert (old_state == STATE_RUNTIME || old_state == STATE_COMPILE);
+	thread_change_perf_state (STATE_EXEC);
+
+	res = runtime_invoke (obj, params, exc, info->compiled_method);
+
+	g_assert (thread_get_perf_state() == STATE_EXEC);
+	thread_change_perf_state (old_state);
+
+	return res;
 }
 
 MONO_SIG_HANDLER_FUNC (, mono_sigfpe_signal_handler)
@@ -7663,6 +7697,8 @@ register_icalls (void)
 
 MonoJitStats mono_jit_stats = {0};
 
+extern guint64 perf_counters[STATE_NUM];
+
 static void 
 print_jit_stats (void)
 {
@@ -7717,6 +7753,14 @@ print_jit_stats (void)
 		mono_jit_stats.max_ratio_method = NULL;
 		g_free (mono_jit_stats.biggest_method);
 		mono_jit_stats.biggest_method = NULL;
+	}
+	{
+		thread_change_perf_state(thread_get_perf_state());
+		g_print("\nCounty county county:\n");
+		g_print("Runtime real deal: %fs\nCompile real deal: %fs\nExec real deal: %fs\n",
+			perf_counters[STATE_RUNTIME]/10000000.,
+			perf_counters[STATE_COMPILE]/10000000.,
+			perf_counters[STATE_EXEC]/10000000.);
 	}
 }
 

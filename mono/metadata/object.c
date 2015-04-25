@@ -43,6 +43,7 @@
 #include <mono/utils/mono-counters.h>
 #include <mono/utils/mono-error-internals.h>
 #include <mono/utils/mono-memory-model.h>
+#include <mono/utils/mono-threads.h>
 #include "cominterop.h"
 
 #ifdef HAVE_BOEHM_GC
@@ -588,11 +589,17 @@ mono_install_compile_method (MonoCompileFunc func)
 gpointer 
 mono_compile_method (MonoMethod *method)
 {
+	void *res;
+	PerfState state = thread_get_perf_counter()->state;
+	
+	thread_change_perf_state (STATE_COMPILE);
 	if (!default_mono_compile_method) {
 		g_error ("compile method called on uninitialized runtime");
 		return NULL;
 	}
-	return default_mono_compile_method (method);
+	res = default_mono_compile_method (method);
+	thread_change_perf_state_check (STATE_COMPILE, state);
+	return res;
 }
 
 gpointer
@@ -5896,8 +5903,10 @@ mono_raise_exception (MonoException *ex)
 	 * that will cause gcc to omit the function epilog, causing problems when
 	 * the JIT tries to walk the stack, since the return address on the stack
 	 * will point into the next function in the executable, not this one.
-	 */	
+	 */
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	eh_callbacks.mono_raise_exception (ex);
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 }
 
 void
@@ -6652,6 +6661,8 @@ mono_store_remote_field_new (MonoObject *this, MonoClass *klass, MonoClassField 
 	MonoObject *exc;
 	char* full_name;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+
 	g_assert (mono_object_is_transparent_proxy (this));
 
 	field_class = mono_class_from_mono_type (field->type);
@@ -6659,6 +6670,7 @@ mono_store_remote_field_new (MonoObject *this, MonoClass *klass, MonoClassField 
 	if (mono_class_is_contextbound (tp->remote_class->proxy_class) && tp->rp->context == (MonoObject *) mono_context_get ()) {
 		if (field_class->valuetype) mono_field_set_value (tp->rp->unwrapped_server, field, ((gchar *) arg) + sizeof (MonoObject));
 		else mono_field_set_value (tp->rp->unwrapped_server, field, arg);
+		thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 		return;
 	}
 
@@ -6679,6 +6691,7 @@ mono_store_remote_field_new (MonoObject *this, MonoClass *klass, MonoClassField 
 	mono_remoting_invoke ((MonoObject *)(tp->rp), msg, &exc, &out_args);
 
 	if (exc) mono_raise_exception ((MonoException *)exc);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 }
 #endif
 

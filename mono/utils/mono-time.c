@@ -7,6 +7,7 @@
 #include <utils/mono-time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/resource.h>
 
 #define MTICKS_PER_SEC 10000000
 
@@ -154,6 +155,14 @@ mono_100ns_ticks (void)
 	if (gettimeofday (&tv, NULL) == 0)
 		return ((gint64)tv.tv_sec * 1000000 + tv.tv_usec) * 10;
 	return 0;
+}
+
+gint64
+mono_thread_cpu_time(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+	return ts.tv_sec * 10000000 + ts.tv_nsec/100;
 }
 
 /*

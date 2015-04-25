@@ -16,6 +16,7 @@
 #include <mono/metadata/metadata-internals.h>
 #include <mono/metadata/appdomain.h>
 #include <mono/metadata/mono-debug.h>
+#include <mono/utils/mono-threads.h>
 #include <string.h>
 
 #ifdef HAVE_EXECINFO_H

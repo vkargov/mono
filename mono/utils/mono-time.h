@@ -10,6 +10,8 @@ guint32 mono_msec_ticks      (void) MONO_INTERNAL;
 /* Returns the number of 100ns ticks from unspecified time: this should be monotonic */
 gint64  mono_100ns_ticks     (void) MONO_INTERNAL;
 
+gint64 mono_thread_cpu_time(void) MONO_INTERNAL;
+
 /* Returns the number of 100ns ticks since 1/1/1, UTC timezone */
 gint64  mono_100ns_datetime  (void) MONO_INTERNAL;
 

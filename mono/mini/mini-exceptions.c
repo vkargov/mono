@@ -1889,7 +1889,9 @@ mono_handle_exception_internal (MonoContext *ctx, gpointer obj, gboolean resume,
 						MONO_CONTEXT_SET_IP (ctx, ei->handler_start);
 						return 0;
 					} else {
+						thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 						call_filter (ctx, ei->handler_start);
+						thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 					}
 				}
 			}
@@ -1954,11 +1956,17 @@ mono_debugger_run_finally (MonoContext *start_ctx)
 gboolean
 mono_handle_exception (MonoContext *ctx, gpointer obj)
 {
+	gboolean res;
+	
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 #ifndef DISABLE_PERFCOUNTERS
 	mono_perfcounters->exceptions_thrown++;
 #endif
 
-	return mono_handle_exception_internal (ctx, obj, FALSE, NULL);
+	res = mono_handle_exception_internal (ctx, obj, FALSE, NULL);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+
+	return res;
 }
 
 #ifdef MONO_ARCH_SIGSEGV_ON_ALTSTACK

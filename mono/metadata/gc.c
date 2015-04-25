@@ -216,10 +216,16 @@ mono_gc_run_finalize (void *obj, void *data)
 				o->vtable->klass->name_space, o->vtable->klass->name);
 	}
 
+	g_assert (thread_get_perf_state() == STATE_RUNTIME);
+	thread_change_perf_state(STATE_EXEC);
+
 	runtime_invoke (o, NULL, &exc, NULL);
 
 	if (exc)
 		mono_internal_thread_unhandled_exception (exc);
+
+	g_assert (thread_get_perf_state() == STATE_EXEC);
+	thread_change_perf_state(STATE_RUNTIME);
 
 	mono_domain_set_internal (caller_domain);
 }

@@ -1022,19 +1022,31 @@ mono_break (void)
 MonoException *
 mono_create_corlib_exception_0 (guint32 token)
 {
-	return mono_exception_from_token (mono_defaults.corlib, token);
+	MonoException *e;
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+	e = mono_exception_from_token (mono_defaults.corlib, token);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	return e;
 }
 
 MonoException *
 mono_create_corlib_exception_1 (guint32 token, MonoString *arg)
 {
-	return mono_exception_from_token_two_strings (mono_defaults.corlib, token, arg, NULL);
+	MonoException *e;
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+	e = mono_exception_from_token_two_strings (mono_defaults.corlib, token, arg, NULL);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	return e;
 }
 
 MonoException *
 mono_create_corlib_exception_2 (guint32 token, MonoString *arg1, MonoString *arg2)
 {
-	return mono_exception_from_token_two_strings (mono_defaults.corlib, token, arg1, arg2);
+	MonoException *e;
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+	e = mono_exception_from_token_two_strings (mono_defaults.corlib, token, arg1, arg2);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	return e;
 }
 
 MonoObject*

@@ -42,6 +42,7 @@
 #include "mono/utils/mono-tls.h"
 #include "mono/utils/mono-memory-model.h"
 #include "mono/utils/atomic.h"
+#include "mono/utils/mono-threads.h"
 #include <string.h>
 #include <errno.h>
 
@@ -2063,6 +2064,7 @@ mono_delegate_begin_invoke (MonoDelegate *delegate, gpointer *params)
 	MonoMethod *im;
 	MonoClass *klass;
 	MonoMethod *method = NULL, *method2 = NULL;
+	MonoAsyncResult *res;
 
 	g_assert (delegate);
 	mcast_delegate = (MonoMulticastDelegate *) delegate;
@@ -2098,6 +2100,7 @@ mono_delegate_begin_invoke (MonoDelegate *delegate, gpointer *params)
 		}
 	}
 #endif
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 
 	klass = delegate->object.vtable->klass;
 
@@ -2110,7 +2113,9 @@ mono_delegate_begin_invoke (MonoDelegate *delegate, gpointer *params)
 	im = mono_get_delegate_invoke (method->klass);
 	msg = mono_method_call_message_new (method, params, im, &async_callback, &state);
 
-	return mono_thread_pool_add ((MonoObject *)delegate, msg, async_callback, state);
+	res = mono_thread_pool_add ((MonoObject *)delegate, msg, async_callback, state);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	return res;
 }
 
 #ifndef DISABLE_JIT

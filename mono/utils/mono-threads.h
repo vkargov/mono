@@ -405,4 +405,18 @@ mono_native_thread_create (MonoNativeThreadId *tid, gpointer func, gpointer arg)
 void mono_threads_init_dead_letter (void) MONO_INTERNAL;
 void mono_threads_install_dead_letter (void) MONO_INTERNAL;
 
+typedef enum {STATE_RUNTIME=1, STATE_COMPILE=2, STATE_EXEC=4} PerfState;
+#define STATE_NUM 3
+
+typedef struct {
+	guint64 slice_start_time;
+	PerfState state;
+} MonoThreadPerfCounter;
+
+void thread_change_perf_state (int state);
+void thread_change_perf_state_check (int old_state, int new_state);
+
+PerfState thread_get_perf_state (void);
+MonoThreadPerfCounter *thread_get_perf_counter (void);
+
 #endif /* __MONO_THREADS_H__ */

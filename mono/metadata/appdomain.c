@@ -836,15 +836,19 @@ mono_set_private_bin_path_from_config (MonoDomain *domain)
 MonoAppDomain *
 ves_icall_System_AppDomain_createDomain (MonoString *friendly_name, MonoAppDomainSetup *setup)
 {
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 #ifdef DISABLE_APPDOMAINS
 	mono_raise_exception (mono_get_exception_not_supported ("AppDomain creation is not supported on this runtime."));
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	return NULL;
 #else
 	char *fname = mono_string_to_utf8 (friendly_name);
-	MonoAppDomain *ad = mono_domain_create_appdomain_internal (fname, setup);
+	MonoAppDomain *ad;
+
+	ad = mono_domain_create_appdomain_internal (fname, setup);
 	
 	g_free (fname);
-
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	return ad;
 #endif
 }
@@ -1952,6 +1956,7 @@ ves_icall_System_AppDomain_LoadAssembly (MonoAppDomain *ad,  MonoString *assRef,
 
 	g_assert (assRef != NULL);
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 	name = mono_string_to_utf8 (assRef);
 	parsed = mono_assembly_name_parse (name, &aname);
 	g_free (name);
@@ -1960,6 +1965,7 @@ ves_icall_System_AppDomain_LoadAssembly (MonoAppDomain *ad,  MonoString *assRef,
 		/* This is a parse error... */
 		if (!refOnly)
 			refass = mono_try_assembly_resolve (domain, assRef, NULL, refOnly);
+		thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 		return refass;
 	}
 
@@ -1973,6 +1979,7 @@ ves_icall_System_AppDomain_LoadAssembly (MonoAppDomain *ad,  MonoString *assRef,
 		else
 			refass = NULL;
 		if (!refass) {
+			thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 			return NULL;
 		}
 	}
@@ -1981,6 +1988,7 @@ ves_icall_System_AppDomain_LoadAssembly (MonoAppDomain *ad,  MonoString *assRef,
 		refass = mono_assembly_get_object (domain, ass);
 
 	MONO_OBJECT_SETREF (refass, evidence, evidence);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	return refass;
 }
 
@@ -2009,7 +2017,9 @@ ves_icall_System_AppDomain_InternalUnload (gint32 domain_id)
 	return;
 #endif
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 	mono_domain_unload (domain);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 }
 
 gboolean

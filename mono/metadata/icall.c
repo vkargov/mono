@@ -864,6 +864,8 @@ ves_icall_System_Runtime_CompilerServices_RuntimeHelpers_RunClassConstructor (Mo
 	MonoClass *klass;
 	MonoVTable *vtable;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+
 	MONO_CHECK_ARG_NULL (handle);
 
 	klass = mono_class_from_mono_type (handle);
@@ -873,6 +875,7 @@ ves_icall_System_Runtime_CompilerServices_RuntimeHelpers_RunClassConstructor (Mo
 
 	/* This will call the type constructor */
 	mono_runtime_class_init (vtable);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 }
 
 ICALL_EXPORT void
@@ -1655,8 +1658,12 @@ ICALL_EXPORT MonoArray*
 ves_icall_get_parameter_info (MonoMethod *method, MonoReflectionMethod *member)
 {
 	MonoDomain *domain = mono_domain_get (); 
+	MonoArray* a;
 
-	return mono_param_get_objects_internal (domain, method, member->reftype ? mono_class_from_mono_type (member->reftype->type) : NULL);
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+	a = mono_param_get_objects_internal (domain, method, member->reftype ? mono_class_from_mono_type (member->reftype->type) : NULL);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	return a;	
 }
 
 ICALL_EXPORT MonoReflectionMarshalAsAttribute*
@@ -1708,6 +1715,9 @@ ves_icall_MonoField_GetValueInternal (MonoReflectionField *field, MonoObject *ob
 	MonoClass *fklass = field->klass;
 	MonoClassField *cf = field->field;
 	MonoDomain *domain = mono_object_domain (field);
+	MonoObject *o;
+
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 
 	if (fklass->image->assembly->ref_only)
 		mono_raise_exception (mono_get_exception_invalid_operation (
@@ -1716,7 +1726,10 @@ ves_icall_MonoField_GetValueInternal (MonoReflectionField *field, MonoObject *ob
 	if (mono_security_core_clr_enabled ())
 		mono_security_core_clr_ensure_reflection_access_field (cf);
 
-	return mono_field_get_value_object (domain, cf, obj);
+	o = mono_field_get_value_object (domain, cf, obj);
+
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	return o;
 }
 
 ICALL_EXPORT void
@@ -2632,7 +2645,7 @@ ves_icall_MonoMethod_GetGenericArguments (MonoReflectionMethod *method)
 	MonoArray *res;
 	MonoDomain *domain;
 	int count, i;
-
+	
 	domain = mono_object_domain (method);
 
 	if (method->method->is_inflated) {
@@ -2677,7 +2690,8 @@ ves_icall_InternalInvoke (MonoReflectionMethod *method, MonoObject *this, MonoAr
 	MonoImage *image;
 	int pcount;
 	void *obj = this;
-
+	MonoObject* ret;
+	
 	*exc = NULL;
 
 	if (mono_security_core_clr_enabled ())
@@ -2771,7 +2785,11 @@ ves_icall_InternalInvoke (MonoReflectionMethod *method, MonoObject *this, MonoAr
 
 		return (MonoObject*)mono_array_new_full (mono_object_domain (params), m->klass, lengths, lower_bounds);
 	}
-	return mono_runtime_invoke_array (m, obj, params, NULL);
+
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+	ret = mono_runtime_invoke_array (m, obj, params, NULL);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+	return ret;
 }
 
 #ifndef DISABLE_REMOTING
@@ -2785,6 +2803,8 @@ ves_icall_InternalExecute (MonoReflectionMethod *method, MonoObject *this, MonoA
 	MonoObject *result;
 	int i, j, outarg_count = 0;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+	
 	if (m->klass == mono_defaults.object_class) {
 		if (!strcmp (m->name, "FieldGetter")) {
 			MonoClass *k = this->vtable->klass;
@@ -2815,6 +2835,7 @@ ves_icall_InternalExecute (MonoReflectionMethod *method, MonoObject *this, MonoA
 					mono_gc_wbarrier_generic_store (outArgs, (MonoObject*) out_args);
 					mono_array_setref (out_args, 0, result);
 					g_free (str);
+					thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 					return NULL;
 				}
 				k = k->parent;
@@ -2859,6 +2880,7 @@ ves_icall_InternalExecute (MonoReflectionMethod *method, MonoObject *this, MonoA
 					mono_gc_wbarrier_generic_store (outArgs, (MonoObject*) out_args);
 
 					g_free (str);
+					thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 					return NULL;
 				}
 				
@@ -2896,7 +2918,7 @@ ves_icall_InternalExecute (MonoReflectionMethod *method, MonoObject *this, MonoA
 	}
 
 	mono_gc_wbarrier_generic_store (outArgs, (MonoObject*) out_args);
-
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	return result;
 }
 #endif
@@ -4931,10 +4953,12 @@ ves_icall_System_Reflection_Assembly_FillName (MonoReflectionAssembly *assembly,
 	gchar *absolute;
 	MonoAssembly *mass = assembly->assembly;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 	if (g_path_is_absolute (mass->image->name)) {
 		fill_reflection_assembly_name (mono_object_domain (assembly),
 			aname, &mass->aname, mass->image->name, TRUE,
 			TRUE, TRUE);
+		thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 		return;
 	}
 	absolute = g_build_filename (mass->basedir, mass->image->name, NULL);
@@ -4944,6 +4968,7 @@ ves_icall_System_Reflection_Assembly_FillName (MonoReflectionAssembly *assembly,
 		TRUE);
 
 	g_free (absolute);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 }
 
 ICALL_EXPORT void
@@ -4955,6 +4980,8 @@ ves_icall_System_Reflection_Assembly_InternalGetAssemblyName (MonoString *fname,
 	MonoImage *image;
 	MonoAssemblyName name;
 	char *dirname;
+
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 
 	filename = mono_string_to_utf8 (fname);
 
@@ -4987,6 +5014,7 @@ ves_icall_System_Reflection_Assembly_InternalGetAssemblyName (MonoString *fname,
 
 	g_free (filename);
 	mono_image_close (image);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 }
 
 ICALL_EXPORT MonoBoolean
@@ -5188,11 +5216,14 @@ ves_icall_System_Reflection_AssemblyName_ParseName (MonoReflectionAssemblyName *
 	gboolean is_version_defined;
 	gboolean is_token_defined;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+
 	aname.public_key = NULL;
 	val = mono_string_to_utf8 (assname);
 	if (!mono_assembly_name_parse_full (val, &aname, TRUE, &is_version_defined, &is_token_defined)) {
 		g_free ((guint8*) aname.public_key);
 		g_free (val);
+		thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 		return FALSE;
 	}
 	
@@ -5203,6 +5234,7 @@ ves_icall_System_Reflection_AssemblyName_ParseName (MonoReflectionAssemblyName *
 	g_free ((guint8*) aname.public_key);
 	g_free (val);
 
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	return TRUE;
 }
 
@@ -6099,6 +6131,7 @@ ves_icall_Remoting_RealProxy_GetTransparentProxy (MonoObject *this, MonoString *
 	MonoType *type;
 	MonoClass *klass;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
 	res = mono_object_new (domain, mono_defaults.transparent_proxy_class);
 	tp = (MonoTransparentProxy*) res;
 	
@@ -6110,6 +6143,7 @@ ves_icall_Remoting_RealProxy_GetTransparentProxy (MonoObject *this, MonoString *
 	tp->remote_class = mono_remote_class (domain, class_name, klass);
 
 	res->vtable = mono_remote_class_vtable (domain, tp->remote_class, rp);
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	return res;
 }
 
@@ -7350,12 +7384,15 @@ custom_attrs_get_by_type (MonoObject *obj, MonoReflectionType *attr_type)
 	MonoArray *res;
 	MonoError error;
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+	
 	if (attr_class)
 		mono_class_init_or_throw (attr_class);
 
 	res = mono_reflection_get_custom_attrs_by_type (obj, attr_class, &error);
 	mono_error_raise_exception (&error);
 
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	if (mono_loader_get_last_error ()) {
 		mono_raise_exception (mono_loader_error_prepare_exception (mono_loader_get_last_error ()));
 		g_assert_not_reached ();

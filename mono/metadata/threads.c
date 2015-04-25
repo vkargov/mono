@@ -161,7 +161,7 @@ static MonoGHashTable *threads_starting_up = NULL;
 static MonoGHashTable *thread_start_args = NULL;
 
 /* The TLS key that holds the MonoObject assigned to each thread */
-static MonoNativeTlsKey current_object_key;
+static MonoNativeTlsKey current_object_key;	
 
 /* Contains tids */
 /* Protected by the threads lock */
@@ -1377,8 +1377,9 @@ mono_wait_uninterrupted (MonoInternalThread *thread, gboolean multiple, guint32 
 			break;
 
 		exc = mono_thread_execute_interruption (thread);
-		if (exc)
+		if (exc) {
 			mono_raise_exception (exc);
+		}
 
 		if (ms == -1)
 			continue;
@@ -1494,6 +1495,8 @@ gboolean ves_icall_System_Threading_WaitHandle_WaitOne_internal(MonoObject *this
 	guint32 ret;
 	MonoInternalThread *thread = mono_thread_internal_current ();
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+
 	THREAD_WAIT_DEBUG (g_message ("%s: (%"G_GSIZE_FORMAT") waiting for %p, %d ms", __func__, GetCurrentThreadId (), handle, ms));
 	
 	if(ms== -1) {
@@ -1507,7 +1510,8 @@ gboolean ves_icall_System_Threading_WaitHandle_WaitOne_internal(MonoObject *this
 	ret = mono_wait_uninterrupted (thread, FALSE, 1, &handle, FALSE, ms, TRUE);
 	
 	mono_thread_clr_state (thread, ThreadState_WaitSleepJoin);
-	
+
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 	if(ret==WAIT_FAILED) {
 		THREAD_WAIT_DEBUG (g_message ("%s: (%"G_GSIZE_FORMAT") Wait failed", __func__, GetCurrentThreadId ()));
 		return(FALSE);

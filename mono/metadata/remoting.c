@@ -16,6 +16,7 @@
 #include "mono/metadata/tabledefs.h"
 #include "mono/metadata/exception.h"
 #include "mono/metadata/debug-helpers.h"
+#include "mono/utils/mono-threads.h"
 
 typedef enum {
 	MONO_MARSHAL_NONE,			/* No marshalling needed */
@@ -329,6 +330,8 @@ mono_remoting_wrapper (MonoMethod *method, gpointer *params)
 
 	this = *((MonoTransparentProxy **)params [0]);
 
+	thread_change_perf_state_check (STATE_EXEC, STATE_RUNTIME);
+
 	g_assert (this);
 	g_assert (((MonoObject *)this)->vtable->klass == mono_defaults.transparent_proxy_class);
 	
@@ -359,6 +362,8 @@ mono_remoting_wrapper (MonoMethod *method, gpointer *params)
 			}
 		}
 
+		thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
+		
 		return mono_runtime_invoke (method, method->klass->valuetype? mono_object_unbox ((MonoObject*)this): this, mparams, NULL);
 	}
 
@@ -370,6 +375,8 @@ mono_remoting_wrapper (MonoMethod *method, gpointer *params)
 		mono_raise_exception ((MonoException *)exc);
 
 	mono_method_return_message_restore (method, params, out_args);
+
+	thread_change_perf_state_check (STATE_RUNTIME, STATE_EXEC);
 
 	return res;
 } 
