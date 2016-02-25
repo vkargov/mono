@@ -937,10 +937,15 @@ mono_object_describe (MonoObject *obj)
 }
 
 static void
-print_field_value (const char *field_ptr, MonoClassField *field, int type_offset)
+print_field_value(const char *field_ptr, MonoClassField *field, int type_offset, gboolean is_full)
 {
 	MonoType *type;
-	g_print ("At %p (ofs: %2d) %s: ", field_ptr, field->offset + type_offset, mono_field_get_name (field));
+
+	if (is_full)
+		g_print ("At %p (ofs: %2d) %s: ", field_ptr, field->offset + type_offset, mono_field_get_name (field));
+	else
+		g_print ("%s = ", mono_field_get_name (field));
+
 	type = mono_type_get_underlying_type (field->type);
 
 	switch (type->type) {
@@ -948,7 +953,7 @@ print_field_value (const char *field_ptr, MonoClassField *field, int type_offset
 	case MONO_TYPE_U:
 	case MONO_TYPE_PTR:
 	case MONO_TYPE_FNPTR:
-		g_print ("%p\n", *(const void**)field_ptr);
+		g_print ("%p", *(const void**)field_ptr);
 		break;
 	case MONO_TYPE_STRING:
 	case MONO_TYPE_SZARRAY:
@@ -966,59 +971,62 @@ print_field_value (const char *field_ptr, MonoClassField *field, int type_offset
 		}
 	case MONO_TYPE_VALUETYPE: {
 		MonoClass *k = mono_class_from_mono_type (type);
-		g_print ("%s ValueType (type: %p) at %p\n", k->name, k, field_ptr);
+		g_print ("%s ValueType (type: %p) at %p", k->name, k, field_ptr);
 		break;
 	}
 	case MONO_TYPE_I1:
-		g_print ("%d\n", *(gint8*)field_ptr);
+		g_print ("%d", *(gint8*)field_ptr);
 		break;
 	case MONO_TYPE_U1:
-		g_print ("%d\n", *(guint8*)field_ptr);
+		g_print ("%d", *(guint8*)field_ptr);
 		break;
 	case MONO_TYPE_I2:
-		g_print ("%d\n", *(gint16*)field_ptr);
+		g_print ("%d", *(gint16*)field_ptr);
 		break;
 	case MONO_TYPE_U2:
-		g_print ("%d\n", *(guint16*)field_ptr);
+		g_print ("%d", *(guint16*)field_ptr);
 		break;
 	case MONO_TYPE_I4:
-		g_print ("%d\n", *(gint32*)field_ptr);
+		g_print ("%d", *(gint32*)field_ptr);
 		break;
 	case MONO_TYPE_U4:
-		g_print ("%u\n", *(guint32*)field_ptr);
+		g_print ("%u", *(guint32*)field_ptr);
 		break;
 	case MONO_TYPE_I8:
-		g_print ("%lld\n", (long long int)*(gint64*)field_ptr);
+		g_print ("%lld", (long long int)*(gint64*)field_ptr);
 		break;
 	case MONO_TYPE_U8:
-		g_print ("%llu\n", (long long unsigned int)*(guint64*)field_ptr);
+		g_print ("%llu", (long long unsigned int)*(guint64*)field_ptr);
 		break;
 	case MONO_TYPE_R4:
-		g_print ("%f\n", *(gfloat*)field_ptr);
+		g_print ("%f", *(gfloat*)field_ptr);
 		break;
 	case MONO_TYPE_R8:
-		g_print ("%f\n", *(gdouble*)field_ptr);
+		g_print ("%f", *(gdouble*)field_ptr);
 		break;
 	case MONO_TYPE_BOOLEAN:
-		g_print ("%s (%d)\n", *(guint8*)field_ptr? "True": "False", *(guint8*)field_ptr);
+		g_print ("%s (%d)", *(guint8*)field_ptr? "True": "False", *(guint8*)field_ptr);
 		break;
 	case MONO_TYPE_CHAR:
-		g_print ("'%c' (%d 0x%04x)\n", *(guint16*)field_ptr, *(guint16*)field_ptr, *(guint16*)field_ptr);
+		g_print ("'%c' (%d 0x%04x)", *(guint16*)field_ptr, *(guint16*)field_ptr, *(guint16*)field_ptr);
 		break;
 	default:
 		g_assert_not_reached ();
 		break;
 	}
+	if (is_full)
+		g_print ("\n");
 }
 
 static void
-objval_describe (MonoClass *klass, const char *addr)
+objval_describe (MonoClass *klass, const char *addr, gboolean is_full)
 {
 	MonoClassField *field;
 	MonoClass *p;
 	const char *field_ptr;
 	gssize type_offset = 0;
-
+	gboolean first_field = TRUE;
+	
 	if (klass->valuetype)
 		type_offset = -sizeof (MonoObject);
 
@@ -1038,9 +1046,21 @@ objval_describe (MonoClass *klass, const char *addr)
 			}
 			field_ptr = (const char*)addr + field->offset + type_offset;
 
-			print_field_value (field_ptr, field, type_offset);
+			if (first_field == TRUE)
+				first_field = FALSE;
+			else if (is_full == FALSE)
+				g_print (", ");
+			
+			print_field_value (field_ptr, field, type_offset, is_full);
 		}
 	}
+}
+
+void
+mono_object_describe_fields_brief (MonoObject *obj)
+{
+	MonoClass *klass = mono_object_class (obj);
+	objval_describe (klass, (char*)obj, FALSE);
 }
 
 /**
@@ -1053,7 +1073,7 @@ void
 mono_object_describe_fields (MonoObject *obj)
 {
 	MonoClass *klass = mono_object_class (obj);
-	objval_describe (klass, (char*)obj);
+	objval_describe (klass, (char*)obj, TRUE);
 }
 
 /**
@@ -1066,7 +1086,7 @@ mono_object_describe_fields (MonoObject *obj)
 void
 mono_value_describe_fields (MonoClass* klass, const char* addr)
 {
-	objval_describe (klass, addr);
+	objval_describe (klass, addr, TRUE);
 }
 
 /**
@@ -1100,7 +1120,7 @@ mono_class_describe_statics (MonoClass* klass)
 
 			field_ptr = (const char*)addr + field->offset;
 
-			print_field_value (field_ptr, field, 0);
+			print_field_value (field_ptr, field, 0, TRUE);
 		}
 	}
 }

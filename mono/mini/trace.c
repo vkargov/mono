@@ -535,8 +535,11 @@ mono_trace_enter_method (MonoMethod *method, char *ebp)
 					printf ("[INT32:%p:%d], ", o, *(gint32 *)((char *)o + sizeof (MonoObject)));
 				} else if (klass == mono_defaults.monotype_class) {
 					printf ("[TYPE:%s], ", mono_type_full_name (((MonoReflectionType*)o)->type));
-				} else
-					printf ("[%s.%s:%p], ", klass->name_space, klass->name, o);
+				} else {
+					printf ("[%s.%s:%p] {", klass->name_space, klass->name, o);
+					mono_object_describe_fields_brief (o);
+					printf ("}, ");
+				}
 			} else {
 				printf ("%p, ", *arg_in_stack_slot(cpos, gpointer));
 			}
@@ -689,7 +692,8 @@ mono_trace_leave_method (MonoMethod *method, ...)
 	}
 	case MONO_TYPE_R4:
 	case MONO_TYPE_R8: {
-		double f = va_arg (ap, double);
+		double f;
+		f = va_arg (ap, double);
 		printf ("FP=%f", f);
 		break;
 	}

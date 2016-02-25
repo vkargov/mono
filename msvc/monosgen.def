@@ -640,6 +640,7 @@ mono_object_castclass_mbyref
 mono_object_clone
 mono_object_describe
 mono_object_describe_fields
+mono_object_describe_fields_brief
 mono_object_get_class
 mono_object_get_domain
 mono_object_get_size

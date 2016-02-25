@@ -1356,6 +1356,7 @@ MonoClass *mono_class_get_nullable_param (MonoClass *klass);
 /* object debugging functions, for use inside gdb */
 MONO_API void mono_object_describe        (MonoObject *obj);
 MONO_API void mono_object_describe_fields (MonoObject *obj);
+MONO_API void mono_object_describe_fields_brief (MonoObject *obj);
 MONO_API void mono_value_describe_fields  (MonoClass* klass, const char* addr);
 MONO_API void mono_class_describe_statics (MonoClass* klass);
 
