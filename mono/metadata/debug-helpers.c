@@ -1019,9 +1019,13 @@ print_field_value(const char *field_ptr, MonoClassField *field, int type_offset,
 		break;
 	case MONO_TYPE_R4:
 		g_print ("%f", *(gfloat*)field_ptr);
+		if (!is_full)
+			g_print ("(%a)", *(gfloat*)field_ptr);
 		break;
 	case MONO_TYPE_R8:
 		g_print ("%f", *(gdouble*)field_ptr);
+		if (!is_full)
+			g_print ("(%a)", *(gdouble*)field_ptr);
 		break;
 	case MONO_TYPE_BOOLEAN:
 		g_print ("%s (%d)", *(guint8*)field_ptr? "True": "False", *(guint8*)field_ptr);

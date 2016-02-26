@@ -697,7 +697,7 @@ mono_trace_leave_method (MonoMethod *method, ...)
 	case MONO_TYPE_R8: {
 		double f;
 		f = va_arg (ap, double);
-		printf ("FP=%f", f);
+		printf ("FP=%f(%a)", f, f);
 		break;
 	}
 	case MONO_TYPE_VALUETYPE:  {
