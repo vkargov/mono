@@ -471,7 +471,10 @@ mono_trace_enter_method (MonoMethod *method, char *ebp)
 					printf ("this:[STRING:%p:%s], ", o, as);
 					g_free (as);
 				} else {
-					printf ("this:%p[%s.%s %s], ", o, klass->name_space, klass->name, o->vtable->domain->friendly_name);
+					printf ("this:%p[%s.%s %s]", o, klass->name_space, klass->name, o->vtable->domain->friendly_name);
+					if (1)
+						mono_object_describe_fields_brief (o);
+					printf (", ");
 				}
 			} else 
 				printf ("this:NULL, ");
@@ -536,9 +539,9 @@ mono_trace_enter_method (MonoMethod *method, char *ebp)
 				} else if (klass == mono_defaults.monotype_class) {
 					printf ("[TYPE:%s], ", mono_type_full_name (((MonoReflectionType*)o)->type));
 				} else {
-					printf ("[%s.%s:%p] {", klass->name_space, klass->name, o);
+					printf ("[%s.%s:%p]", klass->name_space, klass->name, o);
 					mono_object_describe_fields_brief (o);
-					printf ("}, ");
+					printf (", ");
 				}
 			} else {
 				printf ("%p, ", *arg_in_stack_slot(cpos, gpointer));

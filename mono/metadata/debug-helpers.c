@@ -897,6 +897,41 @@ print_name_space (MonoClass *klass)
 	return "";
 }
 
+static void
+mono_object_describe_impl (MonoObject *obj, gboolean is_full)
+{
+	MonoClass* klass;
+	const char* sep;
+	if (!obj)
+		g_print ("(null)");
+	else {
+		klass = mono_object_class (obj);
+		if (klass == mono_defaults.string_class) {
+			char *utf8 = mono_string_to_utf8 ((MonoString*)obj);
+			if (strlen (utf8) > 60) {
+				utf8 [57] = '.';
+				utf8 [58] = '.';
+				utf8 [59] = '.';
+				utf8 [60] = 0;
+			}
+			g_print ("String at %p, length: %d, '%s'", obj, mono_string_length ((MonoString*) obj), utf8);
+			g_free (utf8);
+		} else if (klass->rank) {
+			MonoArray *array = (MonoArray*)obj;
+			sep = print_name_space (klass);
+			g_print ("%s%s", sep, klass->name);
+			g_print (" at %p, rank: %d, length: %d", obj, klass->rank, (int)mono_array_length (array));
+		} else {
+			sep = print_name_space (klass);
+			g_print ("%s%s", sep, klass->name);
+			g_print (" object at %p (klass: %p)", obj, klass);
+		}
+	}
+
+	if (is_full)
+		g_print ("\n");
+}
+
 /**
  * mono_object_describe:
  *
@@ -906,45 +941,21 @@ print_name_space (MonoClass *klass)
 void
 mono_object_describe (MonoObject *obj)
 {
-	MonoClass* klass;
-	const char* sep;
-	if (!obj) {
-		g_print ("(null)\n");
-		return;
-	}
-	klass = mono_object_class (obj);
-	if (klass == mono_defaults.string_class) {
-		char *utf8 = mono_string_to_utf8 ((MonoString*)obj);
-		if (strlen (utf8) > 60) {
-			utf8 [57] = '.';
-			utf8 [58] = '.';
-			utf8 [59] = '.';
-			utf8 [60] = 0;
-		}
-		g_print ("String at %p, length: %d, '%s'\n", obj, mono_string_length ((MonoString*) obj), utf8);
-		g_free (utf8);
-	} else if (klass->rank) {
-		MonoArray *array = (MonoArray*)obj;
-		sep = print_name_space (klass);
-		g_print ("%s%s", sep, klass->name);
-		g_print (" at %p, rank: %d, length: %d\n", obj, klass->rank, (int)mono_array_length (array));
-	} else {
-		sep = print_name_space (klass);
-		g_print ("%s%s", sep, klass->name);
-		g_print (" object at %p (klass: %p)\n", obj, klass);
-	}
-
+	mono_object_describe_impl (obj, TRUE);
 }
 
+static void mono_object_describe_fields_brief_impl (MonoObject *obj, GList *met_list);
+
 static void
-print_field_value(const char *field_ptr, MonoClassField *field, int type_offset, gboolean is_full)
+print_field_value(const char *field_ptr, MonoClassField *field, int type_offset, gboolean is_full, GList *met_list)
 {
 	MonoType *type;
+	MonoObject *o = *(MonoObject**)field_ptr;
 
 	if (is_full)
 		g_print ("At %p (ofs: %2d) %s: ", field_ptr, field->offset + type_offset, mono_field_get_name (field));
 	else
-		g_print ("%s = ", mono_field_get_name (field));
+		g_print ("%s=", mono_field_get_name (field));
 
 	type = mono_type_get_underlying_type (field->type);
 
@@ -960,11 +971,19 @@ print_field_value(const char *field_ptr, MonoClassField *field, int type_offset,
 	case MONO_TYPE_CLASS:
 	case MONO_TYPE_OBJECT:
 	case MONO_TYPE_ARRAY:
-		mono_object_describe (*(MonoObject**)field_ptr);
+		if ( is_full || !o || g_list_find (met_list, o))
+			mono_object_describe_impl (o, is_full);
+		else {
+			mono_object_describe_fields_brief_impl (o, met_list);
+		}
 		break;
 	case MONO_TYPE_GENERICINST:
 		if (!mono_type_generic_inst_is_valuetype (type)) {
-			mono_object_describe (*(MonoObject**)field_ptr);
+			if ( is_full || !o || g_list_find (met_list, o))
+				mono_object_describe_impl (o, is_full);
+			else {
+				mono_object_describe_fields_brief_impl (o, met_list);
+			}
 			break;
 		} else {
 			/* fall through */
@@ -1019,13 +1038,17 @@ print_field_value(const char *field_ptr, MonoClassField *field, int type_offset,
 }
 
 static void
-objval_describe (MonoClass *klass, const char *addr, gboolean is_full)
+objval_describe (MonoClass *klass, const char *addr, gboolean is_full, GList *met_list)
 {
 	MonoClassField *field;
 	MonoClass *p;
 	const char *field_ptr;
 	gssize type_offset = 0;
-	gboolean first_field = TRUE;
+	gboolean first_field = TRUE, free_list = FALSE;
+
+	if (!met_list)
+		free_list = TRUE;
+	met_list = g_list_append (met_list, (gpointer)addr);
 	
 	if (klass->valuetype)
 		type_offset = -sizeof (MonoObject);
@@ -1037,7 +1060,7 @@ objval_describe (MonoClass *klass, const char *addr, gboolean is_full)
 			if (field->type->attrs & (FIELD_ATTRIBUTE_STATIC | FIELD_ATTRIBUTE_HAS_FIELD_RVA))
 				continue;
 
-			if (p != klass && !printed_header) {
+			if (p != klass && !printed_header && is_full) {
 				const char *sep;
 				g_print ("In class ");
 				sep = print_name_space (p);
@@ -1051,16 +1074,27 @@ objval_describe (MonoClass *klass, const char *addr, gboolean is_full)
 			else if (is_full == FALSE)
 				g_print (", ");
 			
-			print_field_value (field_ptr, field, type_offset, is_full);
+			print_field_value (field_ptr, field, type_offset, is_full, met_list);
 		}
 	}
+
+	if (free_list)
+		g_list_free (met_list);
+}
+
+static void
+mono_object_describe_fields_brief_impl (MonoObject *obj, GList *met_list)
+{
+	MonoClass *klass = mono_object_class (obj);
+	printf ("{");
+	objval_describe (klass, (char*)obj, FALSE, met_list);
+	printf ("}");
 }
 
 void
 mono_object_describe_fields_brief (MonoObject *obj)
 {
-	MonoClass *klass = mono_object_class (obj);
-	objval_describe (klass, (char*)obj, FALSE);
+	mono_object_describe_fields_brief_impl (obj, NULL);
 }
 
 /**
@@ -1073,7 +1107,7 @@ void
 mono_object_describe_fields (MonoObject *obj)
 {
 	MonoClass *klass = mono_object_class (obj);
-	objval_describe (klass, (char*)obj, TRUE);
+	objval_describe (klass, (char*)obj, TRUE, NULL);
 }
 
 /**
@@ -1086,7 +1120,7 @@ mono_object_describe_fields (MonoObject *obj)
 void
 mono_value_describe_fields (MonoClass* klass, const char* addr)
 {
-	objval_describe (klass, addr, TRUE);
+	objval_describe (klass, addr, TRUE, NULL);
 }
 
 /**
@@ -1120,7 +1154,7 @@ mono_class_describe_statics (MonoClass* klass)
 
 			field_ptr = (const char*)addr + field->offset;
 
-			print_field_value (field_ptr, field, 0, TRUE);
+			print_field_value (field_ptr, field, 0, TRUE, NULL);
 		}
 	}
 }
