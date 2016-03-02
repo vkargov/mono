@@ -902,30 +902,32 @@ mono_object_describe_impl (MonoObject *obj, gboolean need_newline)
 {
 	MonoClass* klass;
 	const char* sep;
-	if (!obj)
+	if (!obj) {
 		g_print ("(null)");
-	else {
-		klass = mono_object_class (obj);
-		if (klass == mono_defaults.string_class) {
-			char *utf8 = mono_string_to_utf8 ((MonoString*)obj);
-			if (strlen (utf8) > 60) {
-				utf8 [57] = '.';
-				utf8 [58] = '.';
-				utf8 [59] = '.';
-				utf8 [60] = 0;
-			}
-			g_print ("String at %p, length: %d, '%s'", obj, mono_string_length ((MonoString*) obj), utf8);
-			g_free (utf8);
-		} else if (klass->rank) {
-			MonoArray *array = (MonoArray*)obj;
-			sep = print_name_space (klass);
-			g_print ("%s%s", sep, klass->name);
-			g_print (" at %p, rank: %d, length: %d", obj, klass->rank, (int)mono_array_length (array));
-		} else {
-			sep = print_name_space (klass);
-			g_print ("%s%s", sep, klass->name);
-			g_print (" object at %p (klass: %p)", obj, klass);
+		if (need_newline)
+			g_print ("\n");
+	}
+
+	klass = mono_object_class (obj);
+	if (klass == mono_defaults.string_class) {
+		char *utf8 = mono_string_to_utf8 ((MonoString*)obj);
+		if (strlen (utf8) > 60) {
+			utf8 [57] = '.';
+			utf8 [58] = '.';
+			utf8 [59] = '.';
+			utf8 [60] = 0;
 		}
+		g_print ("String at %p, length: %d, '%s'", obj, mono_string_length ((MonoString*) obj), utf8);
+		g_free (utf8);
+	} else if (klass->rank) {
+		MonoArray *array = (MonoArray*)obj;
+		sep = print_name_space (klass);
+		g_print ("%s%s", sep, klass->name);
+		g_print (" at %p, rank: %d, length: %d", obj, klass->rank, (int)mono_array_length (array));
+	} else {
+		sep = print_name_space (klass);
+		g_print ("%s%s", sep, klass->name);
+		g_print (" object at %p (klass: %p)", obj, klass);
 	}
 
 	if (need_newline)
