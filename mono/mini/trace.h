@@ -14,6 +14,12 @@ typedef enum {
 	MONO_TRACEOP_WRAPPER,
 } MonoTraceOpcode;
 
+typedef enum {
+	MONO_TRACE_MODE_NORMAL,
+	MONO_TRACE_MODE_VERBOSE,
+	MONO_TRACE_MODE_DIFF
+} MonoTraceMode;
+
 typedef struct {
 	MonoTraceOpcode op;
 	int   exclude;
@@ -23,6 +29,7 @@ typedef struct {
 struct MonoTraceSpec {
 	int len;
 	gboolean enabled;
+	MonoTraceMode mode;
 	MonoTraceOperation *ops;
 
 	MonoAssembly *assembly;

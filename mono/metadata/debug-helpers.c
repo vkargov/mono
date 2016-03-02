@@ -898,7 +898,7 @@ print_name_space (MonoClass *klass)
 }
 
 static void
-mono_object_describe_impl (MonoObject *obj, gboolean is_full)
+mono_object_describe_impl (MonoObject *obj, gboolean need_newline)
 {
 	MonoClass* klass;
 	const char* sep;
@@ -928,7 +928,7 @@ mono_object_describe_impl (MonoObject *obj, gboolean is_full)
 		}
 	}
 
-	if (is_full)
+	if (need_newline)
 		g_print ("\n");
 }
 
@@ -944,10 +944,10 @@ mono_object_describe (MonoObject *obj)
 	mono_object_describe_impl (obj, TRUE);
 }
 
-static void mono_object_describe_fields_brief_impl (MonoObject *obj, GList *met_list);
+static void mono_object_describe_all_fields_impl (MonoObject *obj, GList *met_list);
 
 static void
-print_field_value(const char *field_ptr, MonoClassField *field, int type_offset, gboolean is_full, GList *met_list)
+print_field_value (const char *field_ptr, MonoClassField *field, int type_offset, gboolean is_full, GList *met_list)
 {
 	MonoType *type;
 	MonoObject *o = *(MonoObject**)field_ptr;
@@ -974,7 +974,7 @@ print_field_value(const char *field_ptr, MonoClassField *field, int type_offset,
 		if ( is_full || !o || g_list_find (met_list, o))
 			mono_object_describe_impl (o, is_full);
 		else {
-			mono_object_describe_fields_brief_impl (o, met_list);
+			mono_object_describe_all_fields_impl (o, met_list);
 		}
 		break;
 	case MONO_TYPE_GENERICINST:
@@ -982,7 +982,7 @@ print_field_value(const char *field_ptr, MonoClassField *field, int type_offset,
 			if ( is_full || !o || g_list_find (met_list, o))
 				mono_object_describe_impl (o, is_full);
 			else {
-				mono_object_describe_fields_brief_impl (o, met_list);
+				mono_object_describe_all_fields_impl (o, met_list);
 			}
 			break;
 		} else {
@@ -1087,7 +1087,7 @@ objval_describe (MonoClass *klass, const char *addr, gboolean is_full, GList *me
 }
 
 static void
-mono_object_describe_fields_brief_impl (MonoObject *obj, GList *met_list)
+mono_object_describe_all_fields_impl (MonoObject *obj, GList *met_list)
 {
 	MonoClass *klass = mono_object_class (obj);
 	printf ("{");
@@ -1096,9 +1096,9 @@ mono_object_describe_fields_brief_impl (MonoObject *obj, GList *met_list)
 }
 
 void
-mono_object_describe_fields_brief (MonoObject *obj)
+mono_object_describe_all_fields (MonoObject *obj)
 {
-	mono_object_describe_fields_brief_impl (obj, NULL);
+	mono_object_describe_all_fields_impl (obj, NULL);
 }
 
 /**

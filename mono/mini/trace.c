@@ -173,6 +173,7 @@ enum Token {
 	TOKEN_WRAPPER,
 	TOKEN_STRING,
 	TOKEN_EXCLUDE,
+	TOKEN_VERBOSITY,
 	TOKEN_DISABLED,
 	TOKEN_SEPARATOR,
 	TOKEN_END,
@@ -207,6 +208,11 @@ get_token (void)
 		input += 2;
 		get_string ();
 		return TOKEN_EXCEPTION;
+	}
+	if (input [0] == 'V' && input [1] == ':'){
+		input += 2;
+		get_string ();
+		return TOKEN_VERBOSITY;
 	}
 	if (*input == '-'){
 		input++;
@@ -290,6 +296,15 @@ get_spec (int *last)
 	} else if (token == TOKEN_STRING){
 		trace_spec.ops [*last].op = MONO_TRACEOP_ASSEMBLY;
 		trace_spec.ops [*last].data = g_strdup (value);
+	} else if (token == TOKEN_VERBOSITY){
+		if (!strcmp (value, "default") || !strcmp (value, "normal") || !strcmp (value, "standard"))
+			trace_spec.mode = MONO_TRACE_MODE_NORMAL;
+		else if (!strcmp (value, "compare") || !strcmp (value, "diff") || !strcmp (value, "verbose"))
+			trace_spec.mode = MONO_TRACE_MODE_DIFF;
+		else {
+			fprintf (stderr, "Unknown verbosity level V: in the trace option specification\n");
+			return TOKEN_ERROR;
+		}
 	} else if (token == TOKEN_DISABLED) {
 		trace_spec.enabled = FALSE;
 	} else {
@@ -472,8 +487,8 @@ mono_trace_enter_method (MonoMethod *method, char *ebp)
 					g_free (as);
 				} else {
 					printf ("this:%p[%s.%s %s]", o, klass->name_space, klass->name, o->vtable->domain->friendly_name);
-					if (1)
-						mono_object_describe_fields_brief (o);
+					if (trace_spec.mode == MONO_TRACE_MODE_DIFF || trace_spec.mode == MONO_TRACE_MODE_VERBOSE)
+						mono_object_describe_all_fields (o);
 					printf (", ");
 				}
 			} else 
@@ -540,7 +555,7 @@ mono_trace_enter_method (MonoMethod *method, char *ebp)
 					printf ("[TYPE:%s], ", mono_type_full_name (((MonoReflectionType*)o)->type));
 				} else {
 					printf ("[%s.%s:%p]", klass->name_space, klass->name, o);
-					mono_object_describe_fields_brief (o);
+					mono_object_describe_all_fields (o);
 					printf (", ");
 				}
 			} else {
