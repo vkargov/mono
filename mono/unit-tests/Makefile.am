@@ -12,8 +12,13 @@ if !HOST_WIN32
 if SUPPORT_BOEHM
 
 noinst_LTLIBRARIES = libtestlib.la
+if SHARED_MONO
+sgen_libraries = ../metadata/libmonoruntimesgen.la ../sgen/libmonosgen.la
+else
+sgen_libraries = ../metadata/libmonoruntimesgen-static.la ../sgen/libmonosgen-static.la
+endif
 libtestlib_la_SOURCES =
-libtestlib_la_LIBADD = ../metadata/libmonoruntimesgen.la ../sgen/libmonosgen.la ../utils/libmonoutils.la ../io-layer/libwapi.la 
+libtestlib_la_LIBADD = $(sgen_libraries) ../utils/libmonoutils.la ../io-layer/libwapi.la
 
 test_sgen_qsort_SOURCES = test-sgen-qsort.c
 test_sgen_qsort_CFLAGS = $(test_cflags)
