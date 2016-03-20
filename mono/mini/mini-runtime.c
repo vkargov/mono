@@ -100,7 +100,7 @@ gboolean mono_aot_only = FALSE;
 gboolean mono_llvm_only = FALSE;
 MonoAotMode mono_aot_mode = MONO_AOT_MODE_NONE;
 
-const char *mono_build_date;
+MONO_API const char *mono_build_date;
 gboolean mono_do_signal_chaining;
 gboolean mono_do_crash_chaining;
 int mini_verbose = 0;
