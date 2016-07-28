@@ -152,6 +152,9 @@ if test x$with_overridable_allocators = xyes; then
   AC_MSG_NOTICE([Overridable allocator support enabled])
 else
   AC_MSG_NOTICE([Overridable allocator support disabled])
+else
+  AC_DEFINE(ENABLE_OVERRIDABLE_ALLOCATORS,1,[Overridable allocator support enabled])
+  AC_MSG_NOTICE([Overridable allocator support enabled])
 fi
 
 #
