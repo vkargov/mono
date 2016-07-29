@@ -41,6 +41,7 @@
 #include <mono/metadata/verify-internals.h>
 #include <mono/metadata/verify.h>
 #include <mono/metadata/image-internals.h>
+#include <mono/metadata/mono-alloc.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_UNISTD_H
@@ -809,6 +810,8 @@ mono_image_init (MonoImage *image)
 	image->method_signatures = g_hash_table_new (NULL, NULL);
 
 	image->property_hash = mono_property_hash_new ();
+
+	mono_profiler_memdom_new (image, MONO_PROFILE_MEMDOM_IMAGE);
 }
 
 #if G_BYTE_ORDER != G_LITTLE_ENDIAN
@@ -1370,7 +1373,7 @@ do_mono_image_open (const char *fname, MonoImageOpenStatus *status,
 		}
 	}
 
-	image = g_new0 (MonoImage, 1);
+	image = m_new0 (MonoImage, 1, "image");
 	image->raw_buffer_used = TRUE;
 	image->raw_data_len = mono_file_map_size (filed);
 	image->raw_data = (char *)mono_file_map (image->raw_data_len, MONO_MMAP_READ|MONO_MMAP_PRIVATE, mono_file_map_fd (filed), 0, &image->raw_data_handle);
@@ -1387,7 +1390,7 @@ do_mono_image_open (const char *fname, MonoImageOpenStatus *status,
 			*status = MONO_IMAGE_IMAGE_INVALID;
 		return NULL;
 	}
-	iinfo = g_new0 (MonoCLIImageInfo, 1);
+	iinfo = m_new0 (MonoCLIImageInfo, 1, "cli-image-info");
 	image->image_info = iinfo;
 	image->name = mono_path_resolve_symlinks (fname);
 	image->ref_only = refonly;
@@ -1945,6 +1948,7 @@ mono_image_close_except_pools (MonoImage *image)
 		mono_images_unlock ();
 		return FALSE;
 	}
+	mono_profiler_memdom_destroy (image);
 
 	loaded_images         = get_loaded_images_hash (image->ref_only);
 	loaded_images_by_name = get_loaded_images_by_name_hash (image->ref_only);
@@ -2697,7 +2701,7 @@ mono_image_has_authenticode_entry (MonoImage *image)
 }
 
 gpointer
-mono_image_alloc (MonoImage *image, guint size)
+mono_image_alloc (MonoImage *image, guint size, const char *what)
 {
 	gpointer res;
 
@@ -2707,12 +2711,13 @@ mono_image_alloc (MonoImage *image, guint size)
 	mono_image_lock (image);
 	res = mono_mempool_alloc (image->mempool, size);
 	mono_image_unlock (image);
+	mono_profiler_memdom_alloc (image, size, what);
 
 	return res;
 }
 
 gpointer
-mono_image_alloc0 (MonoImage *image, guint size)
+mono_image_alloc0 (MonoImage *image, guint size, const char *what)
 {
 	gpointer res;
 
@@ -2722,6 +2727,7 @@ mono_image_alloc0 (MonoImage *image, guint size)
 	mono_image_lock (image);
 	res = mono_mempool_alloc0 (image->mempool, size);
 	mono_image_unlock (image);
+	mono_profiler_memdom_alloc (image, size, what);
 
 	return res;
 }
@@ -2737,6 +2743,8 @@ mono_image_strdup (MonoImage *image, const char *s)
 	mono_image_lock (image);
 	res = mono_mempool_strdup (image->mempool, s);
 	mono_image_unlock (image);
+	if (G_UNLIKELY (mono_profiler_events & MONO_PROFILE_RUNTIME_MEM_EVENTS))
+		mono_profiler_memdom_alloc (image, strlen (s) + 1, "strdup");
 
 	return res;
 }
@@ -2771,7 +2779,7 @@ g_list_prepend_image (MonoImage *image, GList *list, gpointer data)
 {
 	GList *new_list;
 	
-	new_list = (GList *)mono_image_alloc (image, sizeof (GList));
+	new_list = (GList *)mono_image_alloc (image, sizeof (GList), "glist");
 	new_list->data = data;
 	new_list->prev = list ? list->prev : NULL;
     new_list->next = list;
@@ -2789,7 +2797,7 @@ g_slist_append_image (MonoImage *image, GSList *list, gpointer data)
 {
 	GSList *new_list;
 
-	new_list = (GSList *)mono_image_alloc (image, sizeof (GSList));
+	new_list = (GSList *)mono_image_alloc (image, sizeof (GSList), "gslist");
 	new_list->data = data;
 	new_list->next = NULL;
 

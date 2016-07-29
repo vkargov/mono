@@ -139,8 +139,8 @@ alloc_sb (Descriptor *desc)
 		pagesize = mono_pagesize ();
 
 	sb_header = desc->block_size == pagesize ?
-		mono_valloc (NULL, desc->block_size, prot_flags_for_activate (TRUE), desc->heap->account_type) :
-		mono_valloc_aligned (desc->block_size, desc->block_size, prot_flags_for_activate (TRUE), desc->heap->account_type);
+		mono_valloc (NULL, desc->block_size, prot_flags_for_activate (TRUE), "lock-free-alloc:sb-header", desc->heap->account_type) :
+		mono_valloc_aligned (desc->block_size, desc->block_size, prot_flags_for_activate (TRUE), "lock-free-alloc:sb-header", desc->heap->account_type);
 
 	g_assert (sb_header == sb_header_for_addr (sb_header, desc->block_size));
 
@@ -180,7 +180,7 @@ desc_alloc (MonoMemAccountType type)
 			Descriptor *d;
 			int i;
 
-			desc = (Descriptor *) mono_valloc (NULL, desc_size * NUM_DESC_BATCH, prot_flags_for_activate (TRUE), type);
+			desc = (Descriptor *) mono_valloc (NULL, desc_size * NUM_DESC_BATCH, prot_flags_for_activate (TRUE), "lock-free-alloc:descriptors", type);
 
 			/* Organize into linked list. */
 			d = desc;

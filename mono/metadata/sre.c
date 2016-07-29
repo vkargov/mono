@@ -141,7 +141,7 @@ image_g_malloc (MonoImage *image, guint size)
 	MONO_REQ_GC_NEUTRAL_MODE;
 
 	if (image)
-		return mono_image_alloc (image, size);
+		return mono_image_alloc (image, size, "sre:image_g_malloc");
 	else
 		return g_malloc (size);
 }
@@ -159,7 +159,7 @@ mono_image_g_malloc0 (MonoImage *image, guint size)
 	MONO_REQ_GC_NEUTRAL_MODE;
 
 	if (image)
-		return mono_image_alloc0 (image, size);
+		return mono_image_alloc0 (image, size, "sre:image_g_malloc0");
 	else
 		return g_malloc0 (size);
 }
@@ -1560,7 +1560,7 @@ reflection_param_handle_mono_type (MonoReflectionGenericParamHandle ref_gparam, 
 	if (!MONO_HANDLE_IS_NULL (ref_mbuilder)) {
 		MonoGenericContainer *generic_container = MONO_HANDLE_GETVAL (ref_mbuilder, generic_container);
 		if (!generic_container) {
-			generic_container = (MonoGenericContainer *)mono_image_alloc0 (image, sizeof (MonoGenericContainer));
+			generic_container = (MonoGenericContainer *)mono_image_alloc0 (image, sizeof (MonoGenericContainer), "sre:method:generic-container");
 			generic_container->is_method = TRUE;
 			/*
 			 * Cannot set owner.method, since the MonoMethod is not created yet.
@@ -2393,7 +2393,7 @@ reflection_setup_internal_class (MonoReflectionTypeBuilderHandle ref_tb, MonoErr
 	 * reflection_setup_internal_class is called too early, well before we know whether the type will be a GTD or DEF,
 	 * meaning we need to alloc enough space to morth a def into a gtd.
 	 */
-	MonoClass *klass = (MonoClass *)mono_image_alloc0 (&dynamic_image->image, MAX (sizeof (MonoClassDef), sizeof (MonoClassGtd)));
+	MonoClass *klass = (MonoClass *)mono_image_alloc0 (&dynamic_image->image, MAX (sizeof (MonoClassDef), sizeof (MonoClassGtd)), "sre:class");
 	klass->class_kind = MONO_CLASS_DEF;
 
 	klass->image = &dynamic_image->image;
@@ -2510,11 +2510,11 @@ reflection_create_generic_class (MonoReflectionTypeBuilderHandle ref_tb, MonoErr
 	if (mono_class_try_get_generic_container (klass) != NULL)
 		goto leave; /* already setup */
 
-	MonoGenericContainer *generic_container = (MonoGenericContainer *)mono_image_alloc0 (klass->image, sizeof (MonoGenericContainer));
+	MonoGenericContainer *generic_container = (MonoGenericContainer *)mono_image_alloc0 (klass->image, sizeof (MonoGenericContainer), "sre:generic-container");
 
 	generic_container->owner.klass = klass;
 	generic_container->type_argc = count;
-	generic_container->type_params = (MonoGenericParamFull *)mono_image_alloc0 (klass->image, sizeof (MonoGenericParamFull) * count);
+	generic_container->type_params = (MonoGenericParamFull *)mono_image_alloc0 (klass->image, sizeof (MonoGenericParamFull) * count, "sre:generic-container:type-params");
 
 	klass->class_kind = MONO_CLASS_GTD;
 	mono_class_set_generic_container (klass, generic_container);
@@ -3060,7 +3060,7 @@ fix_partial_generic_class (MonoClass *klass, MonoError *error)
 	int gmcount = mono_class_get_method_count (gklass);
 	if (mcount != gmcount) {
 		mono_class_set_method_count (klass, gmcount);
-		klass->methods = (MonoMethod **)mono_image_alloc (klass->image, sizeof (MonoMethod*) * (gmcount + 1));
+		klass->methods = (MonoMethod **)mono_image_alloc (klass->image, sizeof (MonoMethod*) * (gmcount + 1), "sre:class:methods");
 
 		for (i = 0; i < gmcount; i++) {
 			klass->methods [i] = mono_class_inflate_generic_method_full_checked (
@@ -3071,7 +3071,7 @@ fix_partial_generic_class (MonoClass *klass, MonoError *error)
 
 	if (klass->interface_count && klass->interface_count != gklass->interface_count) {
 		klass->interface_count = gklass->interface_count;
-		klass->interfaces = (MonoClass **)mono_image_alloc (klass->image, sizeof (MonoClass*) * gklass->interface_count);
+		klass->interfaces = (MonoClass **)mono_image_alloc (klass->image, sizeof (MonoClass*) * gklass->interface_count, "sre:class:interfaces");
 		klass->interfaces_packed = NULL; /*make setup_interface_offsets happy*/
 
 		for (i = 0; i < gklass->interface_count; ++i) {
@@ -3154,7 +3154,7 @@ ensure_runtime_vtable (MonoClass *klass, MonoError *error)
 		num = tb->ctors? mono_array_length (tb->ctors): 0;
 		num += tb->num_methods;
 		mono_class_set_method_count (klass, num);
-		klass->methods = (MonoMethod **)mono_image_alloc (klass->image, sizeof (MonoMethod*) * num);
+		klass->methods = (MonoMethod **)mono_image_alloc (klass->image, sizeof (MonoMethod*) * num, "sre:class:methods");
 		num = tb->ctors? mono_array_length (tb->ctors): 0;
 		for (i = 0; i < num; ++i) {
 			MonoMethod *ctor = ctorbuilder_to_mono_method (klass, mono_array_get (tb->ctors, MonoReflectionCtorBuilder*, i), error);
@@ -3173,7 +3173,7 @@ ensure_runtime_vtable (MonoClass *klass, MonoError *error)
 	
 		if (tb->interfaces) {
 			klass->interface_count = mono_array_length (tb->interfaces);
-			klass->interfaces = (MonoClass **)mono_image_alloc (klass->image, sizeof (MonoClass*) * klass->interface_count);
+			klass->interfaces = (MonoClass **)mono_image_alloc (klass->image, sizeof (MonoClass*) * klass->interface_count, "sre:class:interfaces");
 			for (i = 0; i < klass->interface_count; ++i) {
 				MonoType *iface = mono_type_array_get_and_resolve_raw (tb->interfaces, i, error); /* FIXME use handles */
 				return_val_if_nok (error, FALSE);
@@ -3363,7 +3363,7 @@ typebuilder_setup_fields (MonoClass *klass, MonoError *error)
 		if ((fb->attrs & FIELD_ATTRIBUTE_HAS_FIELD_RVA) && (rva_data = fb->rva_data)) {
 			char *base = mono_array_addr (rva_data, char, 0);
 			size_t size = mono_array_length (rva_data);
-			char *data = (char *)mono_image_alloc (klass->image, size);
+			char *data = (char *)mono_image_alloc (klass->image, size, "sre:field:rva-data");
 			memcpy (data, base, size);
 			def_values [i].data = data;
 		}
@@ -3380,7 +3380,7 @@ typebuilder_setup_fields (MonoClass *klass, MonoError *error)
 			p = assembly->blob.data + idx;
 			len = mono_metadata_decode_blob_size (p, &p2);
 			len += p2 - p;
-			def_values [i].data = (const char *)mono_image_alloc (image, len);
+			def_values [i].data = (const char *)mono_image_alloc (image, len, "sre:class:field-def-values:data");
 			memcpy ((gpointer)def_values [i].data, p, len);
 		}
 	}

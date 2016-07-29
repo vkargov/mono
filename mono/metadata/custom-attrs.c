@@ -553,7 +553,7 @@ mono_custom_attrs_from_builders (MonoImage *alloc_img, MonoImage *image, MonoArr
 	for (i = 0; i < count; ++i) {
 		cattr = (MonoReflectionCustomAttr*)mono_array_get (cattrs, gpointer, i);
 		if (custom_attr_visible (image, cattr)) {
-			unsigned char *saved = (unsigned char *)mono_image_alloc (image, mono_array_length (cattr->data));
+			unsigned char *saved = (unsigned char *)mono_image_alloc (image, mono_array_length (cattr->data), "sre:custom-attr-data");
 			memcpy (saved, mono_array_addr (cattr->data, char, 0), mono_array_length (cattr->data));
 			ainfo->attrs [index].ctor = cattr->ctor->method;
 			g_assert (cattr->ctor->method);

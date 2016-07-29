@@ -1559,7 +1559,6 @@ _mono_reflection_parse_type (char *name, char **endptr, gboolean is_recursed,
 	info->nested = NULL;
 	info->modifiers = NULL;
 	info->type_arguments = NULL;
-
 	/* last_point separates the namespace from the name */
 	last_point = NULL;
 	/* Skips spaces */

@@ -140,7 +140,7 @@ lock_free_mempool_free (LockFreeMempool *mp)
 	chunk = mp->chunks;
 	while (chunk) {
 		next = (LockFreeMempoolChunk *)chunk->prev;
-		mono_vfree (chunk, mono_pagesize (), MONO_MEM_ACCOUNT_DOMAIN);
+		mono_vfree (chunk, ALIGN_TO (chunk->size, mono_pagesize ()), MONO_MEM_ACCOUNT_DOMAIN);
 		chunk = next;
 	}
 	g_free (mp);
@@ -158,7 +158,7 @@ lock_free_mempool_chunk_new (LockFreeMempool *mp, int len)
 	size = mono_pagesize ();
 	while (size - sizeof (LockFreeMempoolChunk) < len)
 		size += mono_pagesize ();
-	chunk = (LockFreeMempoolChunk *)mono_valloc (0, size, MONO_MMAP_READ|MONO_MMAP_WRITE, MONO_MEM_ACCOUNT_DOMAIN);
+	chunk = (LockFreeMempoolChunk *)mono_valloc (0, size, MONO_MMAP_READ|MONO_MMAP_WRITE, "lockfree-mempool", MONO_MEM_ACCOUNT_DOMAIN);
 	g_assert (chunk);
 	chunk->mem = (guint8 *)ALIGN_PTR_TO ((char*)chunk + sizeof (LockFreeMempoolChunk), 16);
 	chunk->size = ((char*)chunk + size) - (char*)chunk->mem;
@@ -399,6 +399,7 @@ mono_domain_create (void)
 	domain->search_path = NULL;
 
 	mono_profiler_appdomain_event (domain, MONO_PROFILE_START_LOAD);
+	mono_profiler_memdom_new (domain, MONO_PROFILE_MEMDOM_APPDOMAIN);
 
 	domain->mp = mono_mempool_new ();
 	domain->code_mp = mono_code_manager_new ();
@@ -1035,6 +1036,7 @@ mono_domain_free (MonoDomain *domain, gboolean force)
 		return;
 
 	mono_profiler_appdomain_event (domain, MONO_PROFILE_START_UNLOAD);
+	mono_profiler_memdom_destroy (domain);
 
 	mono_debug_domain_unload (domain);
 
@@ -1286,7 +1288,7 @@ mono_domain_get_friendly_name (MonoDomain *domain)
  * LOCKING: Acquires the domain lock.
  */
 gpointer
-mono_domain_alloc (MonoDomain *domain, guint size)
+mono_domain_alloc (MonoDomain *domain, guint size, const char *what)
 {
 	gpointer res;
 
@@ -1296,6 +1298,7 @@ mono_domain_alloc (MonoDomain *domain, guint size)
 #endif
 	res = mono_mempool_alloc (domain->mp, size);
 	mono_domain_unlock (domain);
+	mono_profiler_memdom_alloc (domain, size, what);
 
 	return res;
 }
@@ -1306,7 +1309,7 @@ mono_domain_alloc (MonoDomain *domain, guint size)
  * LOCKING: Acquires the domain lock.
  */
 gpointer
-mono_domain_alloc0 (MonoDomain *domain, guint size)
+mono_domain_alloc0 (MonoDomain *domain, guint size, const char *what)
 {
 	gpointer res;
 
@@ -1316,6 +1319,7 @@ mono_domain_alloc0 (MonoDomain *domain, guint size)
 #endif
 	res = mono_mempool_alloc0 (domain->mp, size);
 	mono_domain_unlock (domain);
+	mono_profiler_memdom_alloc (domain, size, what);
 
 	return res;
 }

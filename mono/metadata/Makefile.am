@@ -270,7 +270,8 @@ common_sources = \
 	w32handle-namespace.c	\
 	w32handle.h	\
 	w32handle.c	\
-	w32error.h
+	w32error.h	\
+	mono-alloc.h
 
 # These source files have compile time dependencies on GC code
 gc_dependent_sources = \
