@@ -340,8 +340,8 @@ ms_get_empty_block (void)
 		int alloc_num = MS_BLOCK_ALLOC_NUM;
 		for (;;) {
 			p = (char *)sgen_alloc_os_memory_aligned (MS_BLOCK_SIZE * alloc_num, MS_BLOCK_SIZE,
-				(SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE),
-				alloc_num == 1 ? "major heap section" : NULL, MONO_MEM_ACCOUNT_SGEN_MARKSWEEP);
+				(SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE | (alloc_num > 1 ? SGEN_ALLOC_NON_FATAL : 0)),
+				"sgen:major heap section", MONO_MEM_ACCOUNT_SGEN_MARKSWEEP);
 			if (p)
 				break;
 			alloc_num >>= 1;

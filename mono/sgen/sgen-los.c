@@ -252,7 +252,13 @@ get_los_section_memory (size_t size)
 	if (!sgen_memgov_try_alloc_space (LOS_SECTION_SIZE, SPACE_LOS))
 		return NULL;
 
+<<<<<<< HEAD
 	section = (LOSSection *)sgen_alloc_os_memory_aligned (LOS_SECTION_SIZE, LOS_SECTION_SIZE, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE), NULL, MONO_MEM_ACCOUNT_SGEN_LOS);
+||||||| merged common ancestors
+	section = (LOSSection *)sgen_alloc_os_memory_aligned (LOS_SECTION_SIZE, LOS_SECTION_SIZE, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE), NULL);
+=======
+	section = (LOSSection *)sgen_alloc_os_memory_aligned (LOS_SECTION_SIZE, LOS_SECTION_SIZE, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE | SGEN_ALLOC_NON_FATAL), "sgen:los-section");
+>>>>>>> [sgen] Add SGEN_ALLOC_NON_FATAL flag to signal non fatal allocs instead of passing NULL as the description.
 
 	if (!section)
 		return NULL;
@@ -370,7 +376,7 @@ sgen_los_alloc_large_inner (GCVTable vtable, size_t size)
 
 #ifdef LOS_DUMMY
 	if (!los_segment)
-		los_segment = sgen_alloc_os_memory (LOS_SEGMENT_SIZE, SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE, NULL);
+		los_segment = sgen_alloc_os_memory (LOS_SEGMENT_SIZE, SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE, "sgen:los-dummy-segment");
 	los_segment_index = ALIGN_UP (los_segment_index);
 
 	obj = (LOSObject*)(los_segment + los_segment_index);
@@ -388,7 +394,7 @@ sgen_los_alloc_large_inner (GCVTable vtable, size_t size)
 		int pagesize = mono_pagesize ();
 		size_t alloc_size = SGEN_ALIGN_UP_TO (obj_size, pagesize);
 		if (sgen_memgov_try_alloc_space (alloc_size, SPACE_LOS)) {
-			obj = (LOSObject *)sgen_alloc_os_memory (alloc_size, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE), NULL, MONO_MEM_ACCOUNT_SGEN_LOS);
+			obj = (LOSObject *)sgen_alloc_os_memory (alloc_size, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE | SGEN_ALLOC_NON_FATAL), MONO_MEM_ACCOUNT_SGEN_LOS, "sgen:los-object");
 			if (obj) {
 				los_memory_usage_total += alloc_size;
 				obj = randomize_los_object_start (obj, obj_size, alloc_size, pagesize);
