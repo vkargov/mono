@@ -424,6 +424,13 @@ mono_print_ins_index (int i, MonoInst *ins)
 	g_string_free (buf, TRUE);
 }
 
+/* 
+ * char *mono_sprint_ins (MonoInst *ins) {
+ * 	
+ * 	
+ * }
+ */
+
 GString *
 mono_print_ins_index_strbuf (int i, MonoInst *ins)
 {

@@ -7603,8 +7603,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 
 	cfg->current_method = method;
 
-	if (cfg->verbose_level > 2)
-		printf ("method to IR %s\n", mono_method_full_name (method, TRUE));
+	MONO_VLOG (3, "method to IR %s\n", mono_method_full_name (method, TRUE));
 
 	param_types = (MonoType **)mono_mempool_alloc (cfg->mempool, sizeof (MonoType*) * num_args);
 	if (sig->hasthis)
@@ -8027,8 +8026,7 @@ mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_b
 #endif
 		}
 
-		if (cfg->verbose_level > 3)
-			printf ("converting (in B%d: stack: %d) %s", cfg->cbb->block_num, (int)(sp - stack_start), mono_disasm_code_one (NULL, method, ip, NULL));
+		MONO_VLOG (4, "converting (in B%d: stack: %d) %s", cfg->cbb->block_num, (int)(sp - stack_start), mono_disasm_code_one (NULL, method, ip, NULL));
 
 		switch (*ip) {
 		case CEE_NOP:
@@ -13042,6 +13040,13 @@ mono_error_exit:
 		return -1;
 	else
 		return inline_costs;
+}
+
+void mono_method_to_ir2 (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_bblock, MonoBasicBlock *end_bblock, 
+			MonoInst *return_var, MonoInst **inline_args, 
+			guint inline_offset, gboolean is_virtual_call, int *result)
+{
+	*result = mono_method_to_ir (cfg, method, start_bblock, end_bblock, return_var, inline_args, inline_offset, is_virtual_call);
 }
 
 static int

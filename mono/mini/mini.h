@@ -42,6 +42,7 @@
 #include "mini-unwind.h"
 #include "jit.h"
 #include "cfgdump.h"
+#include "mini-print.h"
 
 #include "mono/metadata/class-internals.h"
 #include "mono/metadata/domain-internals.h"
@@ -1935,7 +1936,10 @@ typedef struct {
 	int methods_with_llvm;
 	int methods_without_llvm;
 	char *max_ratio_method;
-	char *biggest_method;
+	char *biggest_method;	
+#define MONO_PHASE_DEF(name, desc) double name;
+#include "mini-phases.h"
+#undef MONO_PHASE_DEF
 	double jit_method_to_ir;
 	double jit_liveness_handle_exception_clauses;
 	double jit_handle_out_of_line_bblock;
@@ -2639,6 +2643,10 @@ int               mono_method_to_ir (MonoCompile *cfg, MonoMethod *method, MonoB
 									 MonoInst *return_var, MonoInst **inline_args,
 									 guint inline_offset, gboolean is_virtual_call);
 
+void               mono_method_to_ir2 (MonoCompile *cfg, MonoMethod *method, MonoBasicBlock *start_bblock, MonoBasicBlock *end_bblock, 
+									 MonoInst *return_var, MonoInst **inline_args,
+				     guint inline_offset, gboolean is_virtual_call, int *result);
+
 //the following methods could just be renamed/moved from method-to-ir.c
 int               mini_inline_method (MonoCompile *cfg, MonoMethod *cmethod, MonoMethodSignature *fsig, MonoInst **sp, guchar *ip,
 									  guint real_offset, gboolean inline_always);
@@ -3064,10 +3072,22 @@ void mono_cfg_add_try_hole (MonoCompile *cfg, MonoExceptionClause *clause, guint
 void mono_cfg_set_exception (MonoCompile *cfg, int type);
 void mono_cfg_set_exception_invalid_program (MonoCompile *cfg, char *msg);
 
-#define MONO_TIME_TRACK(a, phase) \
+#define MONO_VLOG(level, msg, ...) if (G_UNLIKELY (cfg->verbose_level >= (level))) g_printf ("# %*s" msg "\n", (level - 1), "", ##__VA_ARGS__)
+
+#define MONO_PHASE(phase, ...)			\
 	{ \
 		GTimer *timer = mono_time_track_start (); \
-		(phase) ; \
+		MONO_VLOG (1, "ENTERING PHASE %s", phase); \
+		phase (##__VA_ARGS__);						\
+		mono_time_track_end (&(mono_jit_stats.##phase), timer); \
+		mono_cfg_dump_ir (cfg, "local_cprop"); \
+	}
+/* TODO make cfg_dump_ir put "2" "3" etc if the pass already was... or follow the GCC convention of phaseno.name */
+
+#define MONO_TIME_TRACK(a, phase)		\
+	{ \
+		GTimer *timer = mono_time_track_start (); \
+		(phase); \
 		mono_time_track_end (&(a), timer); \
 	}
 

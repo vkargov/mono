@@ -743,8 +743,9 @@ mono_compile_create_var_for_vreg (MonoCompile *cfg, MonoType *type, int opcode, 
 	}
 
 	cfg->num_varinfo++;
-	if (cfg->verbose_level > 2)
-		g_print ("created temp %d (R%d) of type %s\n", num, vreg, mono_type_get_name (type));
+	
+	MONO_VLOG (3, "created temp %d (R%d) of type %s", num, vreg, mono_type_get_name (type));
+
 	return inst;
 }
 
@@ -2035,6 +2036,8 @@ mono_compile_create_vars (MonoCompile *cfg)
 	MonoMethodHeader *header;
 	int i;
 
+	MONO_VLOG (3, "Allocating arguments and local variables.");
+
 	header = cfg->header;
 
 	sig = mono_method_signature (cfg->method);
@@ -2044,8 +2047,6 @@ mono_compile_create_vars (MonoCompile *cfg)
 		/* Inhibit optimizations */
 		cfg->ret->flags |= MONO_INST_VOLATILE;
 	}
-	if (cfg->verbose_level > 2)
-		g_print ("creating vars\n");
 
 	cfg->args = (MonoInst **)mono_mempool_alloc0 (cfg->mempool, (sig->param_count + sig->hasthis) * sizeof (MonoInst*));
 
@@ -2078,14 +2079,12 @@ mono_compile_create_vars (MonoCompile *cfg)
 	cfg->locals_start = cfg->num_varinfo;
 	cfg->locals = (MonoInst **)mono_mempool_alloc0 (cfg->mempool, header->num_locals * sizeof (MonoInst*));
 
-	if (cfg->verbose_level > 2)
-		g_print ("creating locals\n");
+	MONO_VLOG (3, "creating locals");
 
 	for (i = 0; i < header->num_locals; ++i)
 		cfg->locals [i] = mono_compile_create_var (cfg, header->locals [i], OP_LOCAL);
 
-	if (cfg->verbose_level > 2)
-		g_print ("locals done\n");
+	MONO_VLOG (3, "locals done\n");
 
 #ifdef ENABLE_LLVM
 	if (COMPILE_LLVM (cfg))
@@ -3417,7 +3416,7 @@ mini_method_compile (MonoMethod *method, guint32 opts, MonoDomain *domain, JitFl
 		char *method_name;
 
 		method_name = mono_method_get_full_name (method);
-		g_print ("converting %s%s%smethod %s\n", COMPILE_LLVM (cfg) ? "llvm " : "", cfg->gsharedvt ? "gsharedvt " : "", (cfg->gshared && !cfg->gsharedvt) ? "gshared " : "", method_name);
+		MONO_VLOG (1, "converting %s%s%smethod %s", COMPILE_LLVM (cfg) ? "llvm " : "", cfg->gsharedvt ? "gsharedvt " : "", (cfg->gshared && !cfg->gsharedvt) ? "gshared " : "", method_name);
 		/*
 		if (COMPILE_LLVM (cfg))
 			g_print ("converting llvm method %s\n", method_name = mono_method_full_name (method, TRUE));
@@ -3461,12 +3460,12 @@ mini_method_compile (MonoMethod *method, guint32 opts, MonoDomain *domain, JitFl
 	/*
 	 * create MonoInst* which represents arguments and local variables
 	 */
-	mono_compile_create_vars (cfg);
+	MONO_PHASE (mono_compile_create_vars, cfg);
 
 	mono_cfg_dump_create_context (cfg);
 	mono_cfg_dump_begin_group (cfg);
 
-	MONO_TIME_TRACK (mono_jit_stats.jit_method_to_ir, i = mono_method_to_ir (cfg, method_to_compile, NULL, NULL, NULL, NULL, 0, FALSE));
+	MONO_PHASE (mono_method_to_ir2, cfg, method_to_compile, NULL, NULL, NULL, NULL, 0, FALSE, &i);
 	mono_cfg_dump_ir (cfg, "method-to-ir");
 
 	if (cfg->gdump_ctx != NULL) {
@@ -3549,8 +3548,7 @@ mini_method_compile (MonoMethod *method, guint32 opts, MonoDomain *domain, JitFl
 
 	/* Should be done before branch opts */
 	if (cfg->opt & (MONO_OPT_CONSPROP | MONO_OPT_COPYPROP)) {
-		MONO_TIME_TRACK (mono_jit_stats.jit_local_cprop, mono_local_cprop (cfg));
-		mono_cfg_dump_ir (cfg, "local_cprop");
+		MONO_PHASE (mono_local_cprop, cfg);
 	}
 
 	if (cfg->flags & MONO_CFG_HAS_TYPE_CHECK) {
@@ -3686,8 +3684,7 @@ mini_method_compile (MonoMethod *method, guint32 opts, MonoDomain *domain, JitFl
 
 		MONO_TIME_TRACK (mono_jit_stats.jit_ssa_remove, mono_ssa_remove (cfg));
 		mono_cfg_dump_ir (cfg, "ssa_remove");
-		MONO_TIME_TRACK (mono_jit_stats.jit_local_cprop2, mono_local_cprop (cfg));
-		mono_cfg_dump_ir (cfg, "local_cprop2");
+		MONO_PHASE (mono_local_cprop, cfg);
 		MONO_TIME_TRACK (mono_jit_stats.jit_handle_global_vregs2, mono_handle_global_vregs (cfg));
 		mono_cfg_dump_ir (cfg, "handle_global_vregs2");
 		if (cfg->opt & MONO_OPT_DEADCE) {
@@ -3811,7 +3808,7 @@ mini_method_compile (MonoMethod *method, guint32 opts, MonoDomain *domain, JitFl
 
 		if (need_local_opts || cfg->compile_aot) {
 			/* To optimize code created by spill_global_vars */
-			MONO_TIME_TRACK (mono_jit_stats.jit_local_cprop3, mono_local_cprop (cfg));
+			MONO_PHASE (mono_local_cprop, cfg);
 			if (cfg->opt & MONO_OPT_DEADCE)
 				MONO_TIME_TRACK (mono_jit_stats.jit_local_deadce3, mono_local_deadce (cfg));
 			mono_cfg_dump_ir (cfg, "needs_local_opts");

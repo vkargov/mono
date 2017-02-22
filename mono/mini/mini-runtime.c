@@ -3289,6 +3289,9 @@ register_jit_stats (void)
 	mono_counters_register ("Aliased loads eliminated", MONO_COUNTER_JIT | MONO_COUNTER_INT, &mono_jit_stats.loads_eliminated);
 	mono_counters_register ("Aliased stores eliminated", MONO_COUNTER_JIT | MONO_COUNTER_INT, &mono_jit_stats.stores_eliminated);
 	mono_counters_register ("Optimized immediate divisions", MONO_COUNTER_JIT | MONO_COUNTER_INT, &mono_jit_stats.optimized_divisions);
+#define MONO_PHASE_DEF(name, desc) mono_counters_register ("JIT/" name " (" desc ") (sec)", MONO_COUNTER_JIT | MONO_COUNTER_DOUBLE, &mono_jit_stats.name);
+#include "mini-phases.h"
+#undef MONO_PHASE
 }
 
 static void runtime_invoke_info_free (gpointer value);
