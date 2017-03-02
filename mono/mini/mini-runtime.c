@@ -479,9 +479,15 @@ mono_tramp_info_register (MonoTrampInfo *info, MonoDomain *domain)
 		copy->uw_info_len = info->uw_info_len;
 	}
 
-	mono_jit_lock ();
-	tramp_infos = g_slist_prepend (tramp_infos, copy);
-	mono_jit_unlock ();
+	/*
+	 * If no root domain has been created yet, mark the registeration as pending by adding to the tramp_infos list.
+	 * Once the root domain has been created, we will register all pending domains and destroy the list.
+	 */
+	if (!domain) {
+		mono_jit_lock ();
+		tramp_infos = g_slist_prepend (tramp_infos, copy);
+		mono_jit_unlock ();
+	}
 
 	mono_save_trampoline_xdebug_info (info);
 
@@ -495,22 +501,9 @@ mono_tramp_info_register (MonoTrampInfo *info, MonoDomain *domain)
 	mono_tramp_info_free (info);
 }
 
-static void
-mono_tramp_info_cleanup (void)
-{
-	GSList *l;
-
-	for (l = tramp_infos; l; l = l->next) {
-		MonoTrampInfo *info = (MonoTrampInfo *)l->data;
-
-		mono_tramp_info_free (info);
-	}
-	g_slist_free (tramp_infos);
-}
-
 /* Register trampolines created before the root domain was created in the jit info tables */
 static void
-register_trampolines (MonoDomain *domain)
+register_root_trampolines (MonoDomain *domain)
 {
 	GSList *l;
 
@@ -518,7 +511,10 @@ register_trampolines (MonoDomain *domain)
 		MonoTrampInfo *info = (MonoTrampInfo *)l->data;
 
 		register_trampoline_jit_info (domain, info);
+
+		mono_tramp_info_free (info);
 	}
+	g_slist_free (tramp_infos);
 }
 
 G_GNUC_UNUSED static void
@@ -3698,7 +3694,7 @@ mini_init (const char *filename, const char *runtime_version)
 
 	mono_tasklets_init ();
 
-	register_trampolines (domain);
+	register_root_trampolines (domain);
 
 	if (mono_compile_aot)
 		/*
@@ -4088,8 +4084,6 @@ mini_cleanup (MonoDomain *domain)
 	g_free (vtable_trampolines);
 
 	mini_jit_cleanup ();
-
-	mono_tramp_info_cleanup ();
 
 	mono_arch_cleanup ();
 
