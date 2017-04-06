@@ -176,7 +176,7 @@ sgen_alloc_internal_dynamic (size_t size, int type, gboolean assert_on_failure)
 	void *p;
 
 	if (size > allocator_sizes [NUM_ALLOCATORS - 1]) {
-		p = sgen_alloc_os_memory (size, (SgenAllocFlags)(SGEN_ALLOC_INTERNAL | SGEN_ALLOC_ACTIVATE), MONO_MEM_ACCOUNT_SGEN_INTERNAL, description_for_type (type));
+		p = sgen_alloc_os_memory (size, (SgenAllocFlags)(SGEN_ALLOC_INTERNAL | SGEN_ALLOC_ACTIVATE), description_for_type (type), MONO_MEM_ACCOUNT_SGEN_INTERNAL);
 	} else {
 		index = index_for_size (size);
 

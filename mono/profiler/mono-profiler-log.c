@@ -780,7 +780,7 @@ pstrdup (const char *s)
 static void *
 alloc_buffer (int size)
 {
-	return mono_valloc (NULL, size, MONO_MMAP_READ | MONO_MMAP_WRITE | MONO_MMAP_ANON | MONO_MMAP_PRIVATE, MONO_MEM_ACCOUNT_PROFILER);
+	return mono_valloc (NULL, size, MONO_MMAP_READ | MONO_MMAP_WRITE | MONO_MMAP_ANON | MONO_MMAP_PRIVATE, "profiler:buffer", MONO_MEM_ACCOUNT_PROFILER);
 }
 
 static void

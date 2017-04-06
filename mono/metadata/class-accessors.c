@@ -267,7 +267,7 @@ mono_class_set_ref_info_handle (MonoClass *class, guint32 value)
 		return 0;
 	}
 
-	Uint32Property *prop = mono_class_alloc (class, sizeof (Uint32Property));
+	Uint32Property *prop = mono_class_alloc (class, sizeof (Uint32Property), "class:uint32-property");
 	prop->head.tag = PROP_REF_INFO_HANDLE;
 	prop->value = value;
 	prop = mono_property_bag_add (&class->infrequent_data, prop);
@@ -282,7 +282,7 @@ typedef struct {
 static void
 set_pointer_property (MonoClass *klass, InfrequentDataKind property, gpointer value)
 {
-	PointerProperty *prop = mono_class_alloc (klass, sizeof (PointerProperty));
+	PointerProperty *prop = mono_class_alloc (klass, sizeof (PointerProperty), "class:pointer-property");
 	prop->head.tag = property;
 	prop->value = value;
 	mono_property_bag_add (&klass->infrequent_data, prop);
@@ -367,7 +367,7 @@ mono_class_get_declsec_flags (MonoClass *class)
 void
 mono_class_set_declsec_flags (MonoClass *class, guint32 value)
 {
-	Uint32Property *prop = mono_class_alloc (class, sizeof (Uint32Property));
+	Uint32Property *prop = mono_class_alloc (class, sizeof (Uint32Property), "class:uint32-property");
 	prop->head.tag = PROP_DECLSEC_FLAGS;
 	prop->value = value;
 	mono_property_bag_add (&class->infrequent_data, prop);

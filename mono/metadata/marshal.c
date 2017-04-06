@@ -3062,7 +3062,7 @@ cache_generic_delegate_wrapper (GHashTable *cache, MonoMethod *orig_method, Mono
 
 	ginfo = mono_marshal_get_wrapper_info (def);
 	if (ginfo) {
-		info = (WrapperInfo *)mono_image_alloc0 (def->klass->image, sizeof (WrapperInfo));
+		info = (WrapperInfo *)mono_image_alloc0 (def->klass->image, sizeof (WrapperInfo), "wrapper-info");
 		info->subtype = ginfo->subtype;
 		if (info->subtype == WRAPPER_SUBTYPE_NONE) {
 			info->d.delegate_invoke.method = mono_class_inflate_generic_method_checked (ginfo->d.delegate_invoke.method, ctx, &error);

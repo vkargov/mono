@@ -1340,10 +1340,10 @@ MonoGenericContainer*
 mono_class_get_generic_container (MonoClass *klass);
 
 gpointer
-mono_class_alloc (MonoClass *klass, int size);
+mono_class_alloc (MonoClass *klass, int size, const char *what);
 
 gpointer
-mono_class_alloc0 (MonoClass *klass, int size);
+mono_class_alloc0 (MonoClass *klass, int size, const char *what);
 
 void
 mono_class_setup_interfaces (MonoClass *klass, MonoError *error);

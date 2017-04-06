@@ -1376,7 +1376,7 @@ mono_error_set_for_class_failure (MonoError *oerror, const MonoClass *klass)
  *   Allocate memory for some data belonging to CLASS, either from its image's mempool,
  * or from the heap.
  */
-static gpointer
+gpointer
 mono_class_alloc (MonoClass *klass, int size, const char *what)
 {
 	MonoGenericClass *gklass = mono_class_try_get_generic_class (klass);
@@ -2381,7 +2381,7 @@ mono_class_setup_methods (MonoClass *klass)
 			}
 		}
 	} else {
-		methods = (MonoMethod **)mono_class_alloc (klass, sizeof (MonoMethod*) * 1);
+		methods = (MonoMethod **)mono_class_alloc (klass, sizeof (MonoMethod*) * 1, "class:methods");
 		count = 0;
 	}
 
@@ -2632,7 +2632,7 @@ mono_class_setup_properties (MonoClass *klass)
 		}
 	}
 
-	info = mono_class_alloc0 (klass, sizeof (MonoClassPropertyInfo));
+	info = mono_class_alloc0 (klass, sizeof (MonoClassPropertyInfo), "class:property-info");
 	info->first = first;
 	info->count = count;
 	info->properties = properties;
@@ -2785,7 +2785,7 @@ mono_class_setup_events (MonoClass *klass)
 		}
 	}
 
-	info = mono_class_alloc0 (klass, sizeof (MonoClassEventInfo));
+	info = mono_class_alloc0 (klass, sizeof (MonoClassEventInfo), "class:event-info");
 	info->events = events;
 	info->first = first;
 	info->count = count;

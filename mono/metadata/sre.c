@@ -1549,7 +1549,7 @@ reflection_param_handle_mono_type (MonoReflectionGenericParamHandle ref_gparam, 
 	MonoDynamicImage *dynamic_image = MONO_HANDLE_GETVAL (ref_module, dynamic_image);
 	MonoImage *image = &dynamic_image->image;
 
-	MonoGenericParamFull *param = mono_image_new0 (image, MonoGenericParamFull, 1);
+	MonoGenericParamFull *param = mono_image_new0 (image, MonoGenericParamFull, 1, "sre:generic-param-full");
 
 	MonoStringHandle ref_name = MONO_HANDLE_NEW_GET (MonoString, ref_gparam, name);
 	param->info.name = mono_string_to_utf8_image (image, ref_name, error);
@@ -2794,7 +2794,7 @@ reflection_methodbuilder_to_mono_method (MonoClass *klass,
 		int count = mono_array_length (rmb->generic_params);
 		MonoGenericContainer *container;
 
-		container = (MonoGenericContainer *)mono_image_alloc0 (klass->image, sizeof (MonoGenericContainer));
+		container = (MonoGenericContainer *)mono_image_alloc0 (klass->image, sizeof (MonoGenericContainer), "sre:generic-container");
 		container->is_method = TRUE;
 		container->is_anonymous = FALSE;
 		container->type_argc = count;
@@ -3402,7 +3402,7 @@ typebuilder_setup_properties (MonoClass *klass, MonoError *error)
 
 	info = mono_class_get_property_info (klass);
 	if (!info) {
-		info = mono_class_alloc0 (klass, sizeof (MonoClassPropertyInfo));
+		info = mono_class_alloc0 (klass, sizeof (MonoClassPropertyInfo), "sre:class-property-info");
 		mono_class_set_property_info (klass, info);
 	}
 
@@ -3436,7 +3436,7 @@ typebuilder_setup_properties (MonoClass *klass, MonoError *error)
 			p = assembly->blob.data + idx;
 			len = mono_metadata_decode_blob_size (p, &p2);
 			len += p2 - p;
-			info->def_values [i].data = (const char *)mono_image_alloc (image, len);
+			info->def_values [i].data = (const char *)mono_image_alloc (image, len, "sre:field-def-values");
 			memcpy ((gpointer)info->def_values [i].data, p, len);
 		}
 	}
@@ -3454,7 +3454,7 @@ typebuilder_setup_events (MonoClass *klass, MonoError *error)
 
 	error_init (error);
 
-	info = mono_class_alloc0 (klass, sizeof (MonoClassEventInfo));
+	info = mono_class_alloc0 (klass, sizeof (MonoClassEventInfo), "sre:class-event-info");
 	mono_class_set_event_info (klass, info);
 
 	info->count = tb->events ? mono_array_length (tb->events) : 0;

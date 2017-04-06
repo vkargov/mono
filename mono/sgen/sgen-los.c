@@ -252,13 +252,7 @@ get_los_section_memory (size_t size)
 	if (!sgen_memgov_try_alloc_space (LOS_SECTION_SIZE, SPACE_LOS))
 		return NULL;
 
-<<<<<<< HEAD
-	section = (LOSSection *)sgen_alloc_os_memory_aligned (LOS_SECTION_SIZE, LOS_SECTION_SIZE, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE), NULL, MONO_MEM_ACCOUNT_SGEN_LOS);
-||||||| merged common ancestors
-	section = (LOSSection *)sgen_alloc_os_memory_aligned (LOS_SECTION_SIZE, LOS_SECTION_SIZE, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE), NULL);
-=======
-	section = (LOSSection *)sgen_alloc_os_memory_aligned (LOS_SECTION_SIZE, LOS_SECTION_SIZE, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE | SGEN_ALLOC_NON_FATAL), "sgen:los-section");
->>>>>>> [sgen] Add SGEN_ALLOC_NON_FATAL flag to signal non fatal allocs instead of passing NULL as the description.
+	section = (LOSSection *)sgen_alloc_os_memory_aligned (LOS_SECTION_SIZE, LOS_SECTION_SIZE, (SgenAllocFlags)(SGEN_ALLOC_HEAP | SGEN_ALLOC_ACTIVATE | SGEN_ALLOC_NON_FATAL), "sgen:los-section", MONO_MEM_ACCOUNT_SGEN_LOS);
 
 	if (!section)
 		return NULL;
