@@ -1092,7 +1092,11 @@ dump_stats (void)
 						|| strstr (dl_info.dli_sname, "g_calloc")
 						|| strstr (dl_info.dli_sname, "rehash")
 						|| strstr (dl_info.dli_sname, "g_vasprintf")
-						|| strstr (dl_info.dli_sname, "image_g_malloc0"))
+						|| strstr (dl_info.dli_sname, "image_g_malloc0")
+						|| strstr (dl_info.dli_sname, "add_entry")
+						|| strstr (dl_info.dli_sname, "hash_init")
+						|| strstr (dl_info.dli_sname, "hash_table_init")
+						|| strstr (dl_info.dli_sname, "code_hash_init"))
 						continue;
 					it = dl_info.dli_sname;
 					break;
