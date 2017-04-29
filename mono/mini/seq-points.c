@@ -237,9 +237,26 @@ mono_save_seq_point_info (MonoCompile *cfg)
 	// FIXME: dynamic methods
 	if (!cfg->compile_aot) {
 		mono_domain_lock (domain);
-		// FIXME: How can the lookup succeed ?
-		if (!g_hash_table_lookup (domain_jit_info (domain)->seq_points, cfg->method_to_register))
-			g_hash_table_insert (domain_jit_info (domain)->seq_points, cfg->method_to_register, cfg->seq_point_info);
+
+		/*
+		 * Remove the existing sequence point info if it's been created. We need new one.
+		 *
+		 * This scenario can happen if we have some class SomeClass with a static member
+		 * that is initialized with an instance of that class. E.g.
+		 *
+		 *   mono_method_to_ir(SomeClass:.ctor)
+		 *   ...
+		 *   .cctor() // static SomeClass sm = new SomeClass (...);
+		 *   ...
+		 *   mono_runtime_class_init_full()
+		 *   mono_method_to_ir(SomeClass:.ctor)
+		 *
+		 * The second build attempt will be the one to be registered, so the sequence point
+		 * info for the first one is of no use and should be removed.
+		 */
+		g_hash_table_remove (domain_jit_info (domain)->seq_points, cfg->method_to_register);
+
+		g_hash_table_insert (domain_jit_info (domain)->seq_points, cfg->method_to_register, cfg->seq_point_info);
 		mono_domain_unlock (domain);
 	}
 
