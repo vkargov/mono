@@ -3468,7 +3468,7 @@ mini_get_shared_gparam (MonoType *t, MonoType *constraint)
 {
 	MonoGenericParam *par = t->data.generic_param;
 	MonoGSharedGenericParam *copy, key;
-	MonoType *res;
+	MonoType *res, *constraint_copy;
 	MonoImage *image = NULL;
 	char *name;
 
@@ -3496,14 +3496,16 @@ mini_get_shared_gparam (MonoType *t, MonoType *constraint)
 		return res;
 	copy = (MonoGSharedGenericParam *)mono_image_alloc0 (image, sizeof (MonoGSharedGenericParam), "gsharing:generic-param-dup");
 	memcpy (&copy->param, par, sizeof (MonoGenericParamFull));
+	constraint_copy = g_malloc0 (sizeof (MonoType));
+	memcpy (constraint_copy, constraint, sizeof (MonoType));
 	copy->param.info.pklass = NULL;
-	name = get_shared_gparam_name (constraint->type, ((MonoGenericParamFull*)copy)->info.name);
+	name = get_shared_gparam_name (constraint_copy->type, ((MonoGenericParamFull*)copy)->info.name);
 	copy->param.info.name = mono_image_strdup (image, name);
 	g_free (name);
 
 	copy->param.param.owner = par->owner;
 
-	copy->param.param.gshared_constraint = constraint;
+	copy->param.param.gshared_constraint = constraint_copy;
 	copy->parent = par;
 	res = mono_metadata_type_dup (NULL, t);
 	res->data.generic_param = (MonoGenericParam*)copy;
@@ -3511,7 +3513,7 @@ mini_get_shared_gparam (MonoType *t, MonoType *constraint)
 	if (image) {
 		mono_image_lock (image);
 		/* Duplicates are ok */
-		g_hash_table_insert (image->gshared_types [constraint->type], copy, res);
+		g_hash_table_insert (image->gshared_types [constraint_copy->type], copy, res);
 		mono_image_unlock (image);
 	}
 
