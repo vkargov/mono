@@ -3461,6 +3461,7 @@ mini_free_jit_domain_info (MonoDomain *domain)
 		g_hash_table_foreach (info->llvm_jit_callees, free_jit_callee_list, NULL);
 		g_hash_table_destroy (info->llvm_jit_callees);
 	}
+	mono_internal_hash_table_destroy (&info->interp_code_hash);
 #ifdef ENABLE_LLVM
 	mono_llvm_free_domain_info (domain);
 #endif
