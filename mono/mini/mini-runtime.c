@@ -483,7 +483,7 @@ mono_tramp_info_register_internal (MonoTrampInfo *info, MonoDomain *domain, gboo
 		domain = mono_get_root_domain ();
 
 	if (domain)
-		copy = mono_domain_alloc0 (domain, sizeof (MonoTrampInfo));
+		copy = mono_domain_alloc0 (domain, sizeof (MonoTrampInfo), "tramp-info");
 	else
 		copy = g_new0 (MonoTrampInfo, 1);
 
