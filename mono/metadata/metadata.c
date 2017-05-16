@@ -3441,7 +3441,7 @@ mono_metadata_parse_generic_param (MonoImage *m, MonoGenericContainer *generic_c
 				is_mvar = TRUE;
 				break;
 			default:
-				g_error ("Cerating generic param object with invalid MonoType"); // This is not a generic param
+				g_error ("Creating generic param object with invalid MonoType"); // This is not a generic param
 		}
 
 		/* Create dummy MonoGenericParam */
