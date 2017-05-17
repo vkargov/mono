@@ -809,6 +809,7 @@ mono_image_init (MonoImage *image)
 	image->method_signatures = g_hash_table_new (NULL, NULL);
 
 	image->property_hash = mono_property_hash_new ();
+	image->method_header_cache = g_hash_table_new (NULL, NULL);
 }
 
 #if G_BYTE_ORDER != G_LITTLE_ENDIAN
@@ -2082,6 +2083,7 @@ mono_image_close_except_pools (MonoImage *image)
 	free_hash (image->pinvoke_scopes);
 	free_hash (image->pinvoke_scope_filenames);
 	free_hash (image->native_func_wrapper_cache);
+	free_hash (image->method_header_cache);
 	mono_conc_hashtable_destroy (image->typespec_cache);
 
 	mono_wrapper_caches_free (&image->wrapper_caches);

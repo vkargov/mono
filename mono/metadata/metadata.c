@@ -3930,6 +3930,9 @@ mono_metadata_parse_mh_full (MonoImage *m, MonoGenericContainer *container, cons
 	MonoTableInfo *t = &m->tables [MONO_TABLE_STANDALONESIG];
 	guint32 cols [MONO_STAND_ALONE_SIGNATURE_SIZE];
 
+	if ((mh = g_hash_table_lookup (m->method_header_cache, (gpointer)ptr)))
+		return mh;
+
 	error_init (error);
 
 	if (!ptr) {
@@ -4027,6 +4030,7 @@ mono_metadata_parse_mh_full (MonoImage *m, MonoGenericContainer *container, cons
 		mh->clauses = clausesp;
 		mh->num_clauses = num_clauses;
 	}
+	g_hash_table_insert (m->method_header_cache, (gpointer)ptr, mh);
 	return mh;
 fail:
 	g_free (clauses);

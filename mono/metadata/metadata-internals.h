@@ -403,6 +403,8 @@ struct _MonoImage {
 	/* The length of the above array */
 	int gshared_types_len;
 
+	GHashTable *method_header_cache;
+
 	/* The loader used to load this image */
 	MonoImageLoader *loader;
 
