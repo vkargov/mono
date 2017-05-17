@@ -1747,6 +1747,7 @@ mono_get_method_checked (MonoImage *image, guint32 token, MonoClass *klass, Mono
 {
 	MonoMethod *result = NULL;
 	gboolean used_context = FALSE;
+	MonoMetaTableEnum token_type;
 
 	/* We do everything inside the lock to prevent creation races */
 
@@ -1754,7 +1755,8 @@ mono_get_method_checked (MonoImage *image, guint32 token, MonoClass *klass, Mono
 
 	mono_image_lock (image);
 
-	if (mono_metadata_token_table (token) == MONO_TABLE_METHOD) {
+	token_type = mono_metadata_token_table (token);
+	if (token_type == MONO_TABLE_METHOD || token_type == MONO_TABLE_INTERFACEIMPL) {
 		if (!image->method_cache)
 			image->method_cache = g_hash_table_new (NULL, NULL);
 		result = (MonoMethod *)g_hash_table_lookup (image->method_cache, GINT_TO_POINTER (mono_metadata_token_index (token)));
@@ -1777,7 +1779,7 @@ mono_get_method_checked (MonoImage *image, guint32 token, MonoClass *klass, Mono
 	if (!used_context && !result->is_inflated) {
 		MonoMethod *result2 = NULL;
 
-		if (mono_metadata_token_table (token) == MONO_TABLE_METHOD)
+		if (token_type == MONO_TABLE_METHOD)
 			result2 = (MonoMethod *)g_hash_table_lookup (image->method_cache, GINT_TO_POINTER (mono_metadata_token_index (token)));
 		else if (!image_is_dynamic (image))
 			result2 = (MonoMethod *)g_hash_table_lookup (image->methodref_cache, GINT_TO_POINTER (token));
@@ -1787,7 +1789,7 @@ mono_get_method_checked (MonoImage *image, guint32 token, MonoClass *klass, Mono
 			return result2;
 		}
 
-		if (mono_metadata_token_table (token) == MONO_TABLE_METHOD)
+		if (token_type == MONO_TABLE_METHOD || token_type == MONO_TABLE_INTERFACEIMPL)
 			g_hash_table_insert (image->method_cache, GINT_TO_POINTER (mono_metadata_token_index (token)), result);
 		else if (!image_is_dynamic (image))
 			g_hash_table_insert (image->methodref_cache, GINT_TO_POINTER (token), result);
