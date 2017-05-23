@@ -85,7 +85,7 @@ fi
 if [[ ${CI_TAGS} == *'monolite'* ]]; then make get-monolite-latest; fi
 
 make_parallelism=-j4
-if [[ ${label} == 'debian-8-ppc64el' ]]; then make_parallelism=-j1; fi
+if [[ ${label} == 'debian-8-ppc64el' || "$CI_TAGS" =~ collect-coverage ]]; then make_parallelism=-j1; fi
 
 ${TESTCMD} --label=make --timeout=300m --fatal make ${make_parallelism} -w V=1
 
