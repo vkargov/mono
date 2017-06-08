@@ -3428,6 +3428,7 @@ static MonoGenericParam *
 mono_metadata_parse_generic_param (MonoImage *m, MonoGenericContainer *generic_container,
 				   MonoTypeEnum type, const char *ptr, const char **rptr, MonoError *error)
 {
+	const char *gparam_ptr = ptr;
 	int index = mono_metadata_decode_value (ptr, &ptr);
 	if (rptr)
 		*rptr = ptr;
@@ -3451,9 +3452,22 @@ mono_metadata_parse_generic_param (MonoImage *m, MonoGenericContainer *generic_c
 		/* Create dummy MonoGenericParam */
 		MonoGenericParam *param;
 
+		/* Check if gparam is already in the cache */
+		GHashTable **gparam_cache;
+		if (is_mvar)
+			gparam_cache = &m->method_gparam_cache;
+		else
+			gparam_cache = &m->class_gparam_cache;
+		if (!*gparam_cache)
+			*gparam_cache = g_hash_table_new (NULL, NULL);
+		if ((param = g_hash_table_lookup (*gparam_cache, gparam_ptr)))
+			return param;
+
 		param = (MonoGenericParam *)mono_image_alloc0 (m, sizeof (MonoGenericParam));
 		param->num = index;
 		param->owner = get_anonymous_container_for_image (m, is_mvar);
+
+		g_hash_table_insert (*gparam_cache, (gpointer) gparam_ptr, (gpointer) param);
 
 		return param;
 	}

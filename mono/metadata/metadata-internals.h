@@ -396,6 +396,8 @@ struct _MonoImage {
 	GHashTable *mvar_cache_slow;
 	GHashTable *var_cache_constrained;
 	GHashTable *mvar_cache_constrained;
+	GHashTable *class_gparam_cache;
+	GHashTable *method_gparam_cache;
 
 	/* Maps malloc-ed char* pinvoke scope -> MonoDl* */
 	GHashTable *pinvoke_scopes;
