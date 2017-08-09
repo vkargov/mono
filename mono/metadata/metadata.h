@@ -11,6 +11,8 @@
 #include <mono/metadata/row-indexes.h>
 #include <mono/metadata/image.h>
 
+#include <glib.h>
+
 MONO_BEGIN_DECLS
 
 #define MONO_TYPE_ISSTRUCT(t) mono_type_is_struct (t)
@@ -198,6 +200,8 @@ typedef struct {
 		} safearray_data;
 	} data;
 } MonoMarshalSpec;
+
+typedef gpointer (MonoAllocFunc) (gpointer, guint);
 
 MONO_API void         mono_metadata_init (void);
 
@@ -504,6 +508,7 @@ MONO_API uint32_t      mono_metadata_decode_table_row_col (MonoImage *image, int
 					   int            idx, 
 					   unsigned int          col);
 
+gpointer mono_gmalloc_wrapper (gpointer unused, guint size);
 MONO_END_DECLS
 
 #endif /* __MONO_METADATA_H__ */

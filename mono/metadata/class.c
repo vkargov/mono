@@ -314,38 +314,38 @@ mono_image_memdup (MonoImage *image, void *data, guint size)
 	memcpy (res, data, size);
 	return res;
 }
-	
+
+static gpointer *
+memdup_with (MonoAllocFunc *alloc_func, gpointer *p, void *data, guint size)
+{
+	void *res = mono_image_alloc ((MonoImage *)p, size);
+	memcpy (res, data, size);
+	return res;
+}
+
 /* Copy everything mono_metadata_free_array free. */
 MonoArrayType *
-mono_dup_array_type (MonoImage *image, MonoArrayType *a)
+mono_dup_array_type_with (MonoAllocFunc *alloc_func, gpointer p, MonoArrayType *a)
 {
-	if (image) {
-		a = (MonoArrayType *)mono_image_memdup (image, a, sizeof (MonoArrayType));
-		if (a->sizes)
-			a->sizes = (int *)mono_image_memdup (image, a->sizes, a->numsizes * sizeof (int));
-		if (a->lobounds)
-			a->lobounds = (int *)mono_image_memdup (image, a->lobounds, a->numlobounds * sizeof (int));
-	} else {
-		a = (MonoArrayType *)g_memdup (a, sizeof (MonoArrayType));
-		if (a->sizes)
-			a->sizes = (int *)g_memdup (a->sizes, a->numsizes * sizeof (int));
-		if (a->lobounds)
-			a->lobounds = (int *)g_memdup (a->lobounds, a->numlobounds * sizeof (int));
-	}
+	a = (MonoArrayType *)memdup_with (alloc_func, p, a, sizeof (MonoArrayType));
+	if (a->sizes)
+		a->sizes = (int *)memdup_with (alloc_func, p, a->sizes, a->numsizes * sizeof (int));
+	if (a->lobounds)
+		a->lobounds = (int *)memdup_with (alloc_func, p, a->lobounds, a->numlobounds * sizeof (int));
 	return a;
 }
 
 /* Copy everything mono_metadata_free_method_signature free. */
 MonoMethodSignature*
-mono_metadata_signature_deep_dup (MonoImage *image, MonoMethodSignature *sig)
+mono_metadata_signature_deep_dup_with (MonoAllocFunc *alloc_func, gpointer p,  MonoMethodSignature *sig)
 {
 	int i;
 	
-	sig = mono_metadata_signature_dup_full (image, sig);
+	sig = mono_metadata_signature_dup_full_with (alloc_func, p, sig);
 	
-	sig->ret = mono_metadata_type_dup (image, sig->ret);
+	sig->ret = mono_metadata_type_dup_with (alloc_func, p, sig->ret);
 	for (i = 0; i < sig->param_count; ++i)
-		sig->params [i] = mono_metadata_type_dup (image, sig->params [i]);
+		sig->params [i] = mono_metadata_type_dup_with (alloc_func, p, sig->params [i]);
 	
 	return sig;
 }
@@ -689,8 +689,14 @@ is_valid_generic_argument (MonoType *type)
 	}
 }
 
+static MonoType *
+mono_metadata_type_dup_in_domain (MonoDomain *domain, const MonoType *o)
+{
+	return mono_metadata_type_dup_with ((MonoAllocFunc *) &mono_domain_alloc, (gpointer) domain, o);
+}
+
 static MonoType*
-inflate_generic_type (MonoImage *image, MonoType *type, MonoGenericContext *context, MonoError *error)
+inflate_generic_type (MonoDomain *domain, MonoType *type, MonoGenericContext *context, MonoError *error)
 {
 	error_init (error);
 
@@ -702,16 +708,20 @@ inflate_generic_type (MonoImage *image, MonoType *type, MonoGenericContext *cont
 		if (!inst)
 			return NULL;
 		if (num >= inst->type_argc) {
-			MonoGenericParamInfo *info = mono_generic_param_info (type->data.generic_param);
-			mono_error_set_bad_image (error, image, "MVAR %d (%s) cannot be expanded in this context with %d instantiations",
-				num, info ? info->name : "", inst->type_argc);
+			/* 
+			 * MonoGenericParamInfo *info = mono_generic_param_info (type->data.generic_param);
+			 * mono_error_set_bad_image (error, image, "MVAR %d (%s) cannot be expanded in this context with %d instantiations",
+			 * 	num, info ? info->name : "", inst->type_argc);
+			 */
 			return NULL;
 		}
 
 		if (!is_valid_generic_argument (inst->type_argv [num])) {
-			MonoGenericParamInfo *info = mono_generic_param_info (type->data.generic_param);
-			mono_error_set_bad_image (error, image, "MVAR %d (%s) cannot be expanded with type 0x%x",
-				num, info ? info->name : "", inst->type_argv [num]->type);
+			/* 
+			 * MonoGenericParamInfo *info = mono_generic_param_info (type->data.generic_param);
+			 * mono_error_set_bad_image (error, image, "MVAR %d (%s) cannot be expanded with type 0x%x",
+			 * 	num, info ? info->name : "", inst->type_argv [num]->type);
+			 */
 			return NULL;			
 		}
 		/*
@@ -719,7 +729,7 @@ inflate_generic_type (MonoImage *image, MonoType *type, MonoGenericContext *cont
 		 * while the VAR/MVAR duplicates a type from the context.  So, we need to ensure that the
 		 * ->byref and ->attrs from @type are propagated to the returned type.
 		 */
-		nt = mono_metadata_type_dup (image, inst->type_argv [num]);
+		nt = mono_metadata_type_dup_in_domain (domain, inst->type_argv [num]);
 		nt->byref = type->byref;
 		nt->attrs = type->attrs;
 		return nt;
@@ -731,18 +741,22 @@ inflate_generic_type (MonoImage *image, MonoType *type, MonoGenericContext *cont
 		if (!inst)
 			return NULL;
 		if (num >= inst->type_argc) {
-			MonoGenericParamInfo *info = mono_generic_param_info (type->data.generic_param);
-			mono_error_set_bad_image (error, image, "VAR %d (%s) cannot be expanded in this context with %d instantiations",
-				num, info ? info->name : "", inst->type_argc);
+			/* 
+			 * MonoGenericParamInfo *info = mono_generic_param_info (type->data.generic_param);
+			 * mono_error_set_bad_image (error, image, "VAR %d (%s) cannot be expanded in this context with %d instantiations",
+			 * 	num, info ? info->name : "", inst->type_argc);
+			 */
 			return NULL;
 		}
 		if (!is_valid_generic_argument (inst->type_argv [num])) {
-			MonoGenericParamInfo *info = mono_generic_param_info (type->data.generic_param);
-			mono_error_set_bad_image (error, image, "VAR %d (%s) cannot be expanded with type 0x%x",
-				num, info ? info->name : "", inst->type_argv [num]->type);
+			/* 
+			 * MonoGenericParamInfo *info = mono_generic_param_info (type->data.generic_param);
+			 * mono_error_set_bad_image (error, image, "VAR %d (%s) cannot be expanded with type 0x%x",
+			 * 	num, info ? info->name : "", inst->type_argv [num]->type);
+			 */
 			return NULL;			
 		}
-		nt = mono_metadata_type_dup (image, inst->type_argv [num]);
+		nt = mono_metadata_type_dup_in_domain (domain, inst->type_argv [num]);
 		nt->byref = type->byref;
 		nt->attrs = type->attrs;
 		return nt;
@@ -752,7 +766,7 @@ inflate_generic_type (MonoImage *image, MonoType *type, MonoGenericContext *cont
 		MonoType *nt, *inflated = inflate_generic_type (NULL, &eclass->byval_arg, context, error);
 		if (!inflated || !mono_error_ok (error))
 			return NULL;
-		nt = mono_metadata_type_dup (image, type);
+		nt = mono_metadata_type_dup_in_domain (domain, type);
 		nt->data.klass = mono_class_from_mono_type (inflated);
 		mono_metadata_free_type (inflated);
 		return nt;
@@ -762,7 +776,7 @@ inflate_generic_type (MonoImage *image, MonoType *type, MonoGenericContext *cont
 		MonoType *nt, *inflated = inflate_generic_type (NULL, &eclass->byval_arg, context, error);
 		if (!inflated || !mono_error_ok (error))
 			return NULL;
-		nt = mono_metadata_type_dup (image, type);
+		nt = mono_metadata_type_dup_in_domain (domain, type);
 		nt->data.array->eklass = mono_class_from_mono_type (inflated);
 		mono_metadata_free_type (inflated);
 		return nt;
@@ -783,7 +797,7 @@ inflate_generic_type (MonoImage *image, MonoType *type, MonoGenericContext *cont
 		if (gclass == type->data.generic_class)
 			return NULL;
 
-		nt = mono_metadata_type_dup (image, type);
+		nt = mono_metadata_type_dup_in_domain (domain, type);
 		nt->data.generic_class = gclass;
 		return nt;
 	}
@@ -807,7 +821,7 @@ inflate_generic_type (MonoImage *image, MonoType *type, MonoGenericContext *cont
 
 		gclass = mono_metadata_lookup_generic_class (klass, inst, image_is_dynamic (klass->image));
 
-		nt = mono_metadata_type_dup (image, type);
+		nt = mono_metadata_type_dup_in_domain (domain, type);
 		nt->type = MONO_TYPE_GENERICINST;
 		nt->data.generic_class = gclass;
 		return nt;
@@ -845,13 +859,13 @@ mono_class_get_context (MonoClass *klass)
  * modified by the caller, and it should be freed using mono_metadata_free_type ().
  */
 MonoType*
-mono_class_inflate_generic_type_with_mempool (MonoImage *image, MonoType *type, MonoGenericContext *context, MonoError *error)
+mono_class_inflate_generic_type_with_mempool (MonoDomain *domain, MonoType *type, MonoGenericContext *context, MonoError *error)
 {
 	MonoType *inflated = NULL;
 	error_init (error);
 
 	if (context)
-		inflated = inflate_generic_type (image, type, context, error);
+		inflated = inflate_generic_type (domain, type, context, error);
 	return_val_if_nok (error, NULL);
 
 	if (!inflated) {
@@ -860,7 +874,7 @@ mono_class_inflate_generic_type_with_mempool (MonoImage *image, MonoType *type, 
 		if (shared) {
 			return shared;
 		} else {
-			return mono_metadata_type_dup (image, type);
+			return mono_metadata_type_dup_with ((MonoAllocFunc *) &mono_domain_alloc, (gpointer) domain, type);
 		}
 	}
 
@@ -915,13 +929,13 @@ mono_class_inflate_generic_type_checked (MonoType *type, MonoGenericContext *con
  * was done.
  */
 static MonoType*
-mono_class_inflate_generic_type_no_copy (MonoImage *image, MonoType *type, MonoGenericContext *context, MonoError *error)
+mono_class_inflate_generic_type_no_copy (MonoDomain *domain, MonoType *type, MonoGenericContext *context, MonoError *error)
 {
 	MonoType *inflated = NULL; 
 
 	error_init (error);
 	if (context) {
-		inflated = inflate_generic_type (image, type, context, error);
+		inflated = inflate_generic_type (domain, type, context, error);
 		return_val_if_nok (error, NULL);
 	}
 
@@ -10565,13 +10579,15 @@ mono_field_resolve_type (MonoClassField *field, MonoError *error)
 	if (gtd) {
 		MonoClassField *gfield = &gtd->fields [field_idx];
 		MonoType *gtype = mono_field_get_type_checked (gfield, error);
+		MonoDomain *domain = mono_domain_get ();
+		
 		if (!mono_error_ok (error)) {
 			char *full_name = mono_type_get_full_name (gtd);
 			mono_class_set_type_load_failure (klass, "Could not load generic type of field '%s:%s' (%d) due to: %s", full_name, gfield->name, field_idx, mono_error_get_message (error));
 			g_free (full_name);
 		}
 
-		ftype = mono_class_inflate_generic_type_no_copy (image, gtype, mono_class_get_context (klass), error);
+		ftype = mono_class_inflate_generic_type_no_copy (domain, gtype, mono_class_get_context (klass), error);
 		if (!mono_error_ok (error)) {
 			char *full_name = mono_type_get_full_name (klass);
 			mono_class_set_type_load_failure (klass, "Could not load instantiated type of field '%s:%s' (%d) due to: %s", full_name, field->name, field_idx, mono_error_get_message (error));

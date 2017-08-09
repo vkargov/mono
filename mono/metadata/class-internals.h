@@ -1042,7 +1042,7 @@ MONO_API MonoMethodSignature *
 mono_metadata_get_inflated_signature (MonoMethodSignature *sig, MonoGenericContext *context);
 
 MonoType*
-mono_class_inflate_generic_type_with_mempool (MonoImage *image, MonoType *type, MonoGenericContext *context, MonoError *error);
+mono_class_inflate_generic_type_with_mempool (MonoDomain *domain, MonoType *type, MonoGenericContext *context, MonoError *error);
 
 MonoType*
 mono_class_inflate_generic_type_checked (MonoType *type, MonoGenericContext *context, MonoError *error);
@@ -1267,8 +1267,8 @@ mono_method_get_name_full (MonoMethod *method, gboolean signature, gboolean ret,
 char *
 mono_method_get_full_name (MonoMethod *method);
 
-MonoArrayType *mono_dup_array_type (MonoImage *image, MonoArrayType *a);
-MonoMethodSignature *mono_metadata_signature_deep_dup (MonoImage *image, MonoMethodSignature *sig);
+MonoArrayType *mono_dup_array_type_with (MonoAllocFunc *alloc_func, gpointer p, MonoArrayType *a);
+MonoMethodSignature *mono_metadata_signature_deep_dup_with (MonoAllocFunc *alloc_func, gpointer p, MonoMethodSignature *sig);
 
 MONO_API void
 mono_image_init_name_cache (MonoImage *image);

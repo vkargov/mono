@@ -2005,7 +2005,7 @@ mono_metadata_signature_alloc (MonoImage *m, guint32 nparams)
 }
 
 static MonoMethodSignature*
-mono_metadata_signature_dup_internal_with_padding (MonoImage *image, MonoMemPool *mp, MonoMethodSignature *sig, size_t padding)
+mono_metadata_signature_dup_internal_with_padding (MonoAllocFunc *alloc_func, gpointer p, MonoMemPool *mp, MonoMethodSignature *sig, size_t padding)
 {
 	int sigsize, sig_header_size;
 	MonoMethodSignature *ret;
@@ -2013,8 +2013,8 @@ mono_metadata_signature_dup_internal_with_padding (MonoImage *image, MonoMemPool
 	if (sig->ret)
 		sigsize += MONO_SIZEOF_TYPE;
 
-	if (image) {
-		ret = (MonoMethodSignature *)mono_image_alloc (image, sigsize);
+	if (p) {
+		ret = (MonoMethodSignature *)alloc_func (p, sigsize);
 	} else if (mp) {
 		ret = (MonoMethodSignature *)mono_mempool_alloc (mp, sigsize);
 	} else {
@@ -2035,9 +2035,9 @@ mono_metadata_signature_dup_internal_with_padding (MonoImage *image, MonoMemPool
 }
 
 static MonoMethodSignature*
-mono_metadata_signature_dup_internal (MonoImage *image, MonoMemPool *mp, MonoMethodSignature *sig)
+mono_metadata_signature_dup_internal (MonoAllocFunc *alloc_func, gpointer *p, MonoMemPool *mp, MonoMethodSignature *sig)
 {
-	return mono_metadata_signature_dup_internal_with_padding (image, mp, sig, 0);
+	return mono_metadata_signature_dup_internal_with_padding (alloc_func, p, mp, sig, 0);
 }
 /*
  * signature_dup_add_this:
@@ -2048,7 +2048,7 @@ MonoMethodSignature*
 mono_metadata_signature_dup_add_this (MonoImage *image, MonoMethodSignature *sig, MonoClass *klass)
 {
 	MonoMethodSignature *ret;
-	ret = mono_metadata_signature_dup_internal_with_padding (image, NULL, sig, sizeof (MonoType *));
+	ret = mono_metadata_signature_dup_internal_with_padding ((MonoAllocFunc *) &mono_image_alloc, (gpointer) image, NULL, sig, sizeof (MonoType *));
 
 	ret->param_count = sig->param_count + 1;
 	ret->hasthis = FALSE;
@@ -2069,7 +2069,13 @@ mono_metadata_signature_dup_add_this (MonoImage *image, MonoMethodSignature *sig
 MonoMethodSignature*
 mono_metadata_signature_dup_full (MonoImage *image, MonoMethodSignature *sig)
 {
-	MonoMethodSignature *ret = mono_metadata_signature_dup_internal (image, NULL, sig);
+	return mono_metadata_signature_dup_full_with ((MonoAllocFunc *)&mono_image_alloc, (gpointer) image, sig);
+}
+
+MonoMethodSignature*
+mono_metadata_signature_dup_full_with (MonoAllocFunc *alloc_func, gpointer *p, MonoMethodSignature *sig)
+{
+	MonoMethodSignature *ret = mono_metadata_signature_dup_internal (alloc_func, p, NULL, sig);
 
 	for (int i = 0 ; i < sig->param_count; i ++)
 		g_assert(ret->params [i]->type == sig->params [i]->type);
@@ -2078,11 +2084,17 @@ mono_metadata_signature_dup_full (MonoImage *image, MonoMethodSignature *sig)
 	return ret;
 }
 
+gpointer
+mono_gmalloc_wrapper (gpointer unused, guint size)
+{
+	return g_malloc (size);
+}
+
 /*The mempool is accessed without synchronization*/
 MonoMethodSignature*
 mono_metadata_signature_dup_mempool (MonoMemPool *mp, MonoMethodSignature *sig)
 {
-	return mono_metadata_signature_dup_internal (NULL, mp, sig);
+	return mono_metadata_signature_dup_internal ((MonoAllocFunc *)&mono_gmalloc_wrapper, NULL, mp, sig);
 }
 
 /**
@@ -5404,22 +5416,29 @@ mono_metadata_signature_equal (MonoMethodSignature *sig1, MonoMethodSignature *s
 MonoType *
 mono_metadata_type_dup (MonoImage *image, const MonoType *o)
 {
+	MonoAllocFunc *alloc_func = image ? (MonoAllocFunc *) &mono_image_alloc : &mono_gmalloc_wrapper;
+	return mono_metadata_type_dup_with (alloc_func, (gpointer) image, o);
+}
+
+MonoType *
+mono_metadata_type_dup_with (MonoAllocFunc *alloc_func, gpointer p, const MonoType *o)
+{
 	MonoType *r = NULL;
 	int sizeof_o = MONO_SIZEOF_TYPE;
 	if (o->num_mods)
-		sizeof_o += o->num_mods  * sizeof (MonoCustomMod);
+		sizeof_o += o->num_mods * sizeof (MonoCustomMod);
 
-	r = image ? (MonoType *)mono_image_alloc0 (image, sizeof_o) : (MonoType *)g_malloc (sizeof_o);
+	r = (MonoType *)alloc_func (p, sizeof_o);
 
 	memcpy (r, o, sizeof_o);
 
 	if (o->type == MONO_TYPE_PTR) {
-		r->data.type = mono_metadata_type_dup (image, o->data.type);
+		r->data.type = mono_metadata_type_dup_with (alloc_func, p, o->data.type);
 	} else if (o->type == MONO_TYPE_ARRAY) {
-		r->data.array = mono_dup_array_type (image, o->data.array);
+		r->data.array = mono_dup_array_type_with (alloc_func, p, o->data.array);
 	} else if (o->type == MONO_TYPE_FNPTR) {
 		/*FIXME the dup'ed signature is leaked mono_metadata_free_type*/
-		r->data.method = mono_metadata_signature_deep_dup (image, o->data.method);
+		r->data.method = mono_metadata_signature_deep_dup_with (alloc_func, p, o->data.method);
 	}
 	return r;
 }
