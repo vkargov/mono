@@ -291,6 +291,7 @@ typedef union {
 
 #define amd64_mov_reg_reg(inst,dreg,reg,size)	\
 	do {	\
+		if (dreg == reg) {mono_jit_stats.redundant_movs_eliminated++; printf ("Eliminated redundant move in %s\n", __func__); break;} \
 		amd64_codegen_pre(inst); \
 		if ((size) == 2) \
 			x86_prefix((inst), X86_OPERAND_PREFIX); \

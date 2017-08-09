@@ -1961,6 +1961,7 @@ typedef struct {
 	gint32 optimized_divisions;
 	int methods_with_llvm;
 	int methods_without_llvm;
+	int redundant_movs_eliminated;
 	char *max_ratio_method;
 	char *biggest_method;
 	double jit_method_to_ir;
