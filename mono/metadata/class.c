@@ -316,9 +316,9 @@ mono_image_memdup (MonoImage *image, void *data, guint size)
 }
 
 static gpointer *
-memdup_with (MonoAllocFunc *alloc_func, gpointer *p, void *data, guint size)
+mono_memdup_with (MonoAllocFunc *alloc_func, gpointer *p, void *data, guint size)
 {
-	void *res = mono_image_alloc ((MonoImage *)p, size);
+	void *res = alloc_func (p, size);
 	memcpy (res, data, size);
 	return res;
 }
@@ -327,11 +327,11 @@ memdup_with (MonoAllocFunc *alloc_func, gpointer *p, void *data, guint size)
 MonoArrayType *
 mono_dup_array_type_with (MonoAllocFunc *alloc_func, gpointer p, MonoArrayType *a)
 {
-	a = (MonoArrayType *)memdup_with (alloc_func, p, a, sizeof (MonoArrayType));
+	a = (MonoArrayType *)mono_memdup_with (alloc_func, p, a, sizeof (MonoArrayType));
 	if (a->sizes)
-		a->sizes = (int *)memdup_with (alloc_func, p, a->sizes, a->numsizes * sizeof (int));
+		a->sizes = (int *)mono_memdup_with (alloc_func, p, a->sizes, a->numsizes * sizeof (int));
 	if (a->lobounds)
-		a->lobounds = (int *)memdup_with (alloc_func, p, a->lobounds, a->numlobounds * sizeof (int));
+		a->lobounds = (int *)mono_memdup_with (alloc_func, p, a->lobounds, a->numlobounds * sizeof (int));
 	return a;
 }
 
@@ -692,7 +692,8 @@ is_valid_generic_argument (MonoType *type)
 static MonoType *
 mono_metadata_type_dup_in_domain (MonoDomain *domain, const MonoType *o)
 {
-	return mono_metadata_type_dup_with ((MonoAllocFunc *) &mono_domain_alloc, (gpointer) domain, o);
+	/* MonoAllocFunc *alloc_func = domain ? (MonoAllocFunc *) &mono_domain_alloc : &mono_gmalloc_wrapper; */
+	return mono_metadata_type_dup_with ((MonoAllocFunc *)&mono_domain_alloc, (gpointer) domain, o);
 }
 
 static MonoType*
