@@ -5416,20 +5416,18 @@ mono_metadata_signature_equal (MonoMethodSignature *sig1, MonoMethodSignature *s
 MonoType *
 mono_metadata_type_dup (MonoImage *image, const MonoType *o)
 {
-	return mono_metadata_type_dup_with ((MonoAllocFunc *) &mono_image_alloc, (gpointer) image, o);
+	MonoAllocFunc *alloc_func = image ? (MonoAllocFunc *)&mono_image_alloc : &mono_gmalloc_wrapper;		
+	return mono_metadata_type_dup_with (alloc_func, (gpointer) image, o);
 }
 
 MonoType *
 mono_metadata_type_dup_with (MonoAllocFunc *alloc_func, gpointer p, const MonoType *o)
 {
-	if (!p || !alloc_func)
-		alloc_func = &mono_gmalloc_wrapper;
-	
 	MonoType *r = NULL;
 	int sizeof_o = MONO_SIZEOF_TYPE;
+	
 	if (o->num_mods)
 		sizeof_o += o->num_mods * sizeof (MonoCustomMod);
-
 	
 	r = (MonoType *)alloc_func (p, sizeof_o);
 

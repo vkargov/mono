@@ -692,8 +692,8 @@ is_valid_generic_argument (MonoType *type)
 static MonoType *
 mono_metadata_type_dup_in_domain (MonoDomain *domain, const MonoType *o)
 {
-	/* MonoAllocFunc *alloc_func = domain ? (MonoAllocFunc *) &mono_domain_alloc : &mono_gmalloc_wrapper; */
-	return mono_metadata_type_dup_with ((MonoAllocFunc *)&mono_domain_alloc, (gpointer) domain, o);
+	MonoAllocFunc *alloc_func = domain ? (MonoAllocFunc *) &mono_domain_alloc : &mono_gmalloc_wrapper;
+	return mono_metadata_type_dup_with (alloc_func, (gpointer) domain, o);
 }
 
 static MonoType*
@@ -875,7 +875,7 @@ mono_class_inflate_generic_type_with_mempool (MonoDomain *domain, MonoType *type
 		if (shared) {
 			return shared;
 		} else {
-			return mono_metadata_type_dup_with ((MonoAllocFunc *) &mono_domain_alloc, (gpointer) domain, type);
+			return mono_metadata_type_dup_in_domain (domain, type);
 		}
 	}
 
